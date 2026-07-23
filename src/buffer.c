@@ -28,17 +28,20 @@ void buffer_begin(struct buffer* buffer) {
 static inline bool buffer_update_raw_text(struct buffer* buffer) {
   uint32_t lines = vimBufferGetLineCount(buffer->vbuf);
 
-  char_u* raw = NULL;
   uint32_t len = 0;
+  for (int i = 1; i <= lines; i++) {
+    len += strlen(vimBufferGetLine(buffer->vbuf, i)) + 1;
+  }
+
+  char_u* raw = malloc(sizeof(char_u) * len);
+  uint32_t offset = 0;
   for (int i = 1; i <= lines; i++) {
     char_u* line = vimBufferGetLine(buffer->vbuf, i);
     uint32_t line_len = strlen(line);
 
-    len += line_len + 1;
-
-    raw = realloc(raw, sizeof(char_u) * len);
-    if (i == 1) snprintf(raw, len, "%s", line);
-    else snprintf(raw, len, "%s\n%s", raw, line);
+    memcpy(raw + offset, line, line_len);
+    offset += line_len;
+    raw[offset++] = '\n';
   }
   raw[len - 1] = '\0';
 
