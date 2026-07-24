@@ -1,7 +1,7 @@
 VERSION = "1.0.11"
 CC = clang
 DEFINES = -DHAVE_CONFIG_H -DMACOS_X -DMACOS_X_DARWIN # -DMANUAL_AX -DGUI_MOVES
-LIBS = lib/libvim.a -lm -lncurses -liconv -framework Carbon -framework Cocoa
+LIBS = lib/libvim.a lib/libunikey.a -lm -lncurses -liconv -lc++ -framework Carbon -framework Cocoa
 WARN_FLAGS = -Wall -Wno-array-bounds \
 	     -Wno-unknown-warning-option \
 	     -Wno-cpp -Wno-pointer-sign \
@@ -12,7 +12,7 @@ CFLAGS = $(WARN_FLAGS) $(DEFINES) -g -Ilib -Ilib/libvim/proto -std=c99 -O2 #-fsa
 ODIR = bin
 SRC = src
 
-_OBJ = helpers.om helpers.o workspace.om event_tap.o ax.o buffer.o line.o env_vars.o
+_OBJ = helpers.om helpers.o workspace.om event_tap.o ax.o buffer.o line.o env_vars.o vn_engine.o vn_input.o
 OBJ = $(patsubst %, $(ODIR)/%, $(_OBJ))
 
 .PHONY: all x86 arm64 universal sign lib clean
