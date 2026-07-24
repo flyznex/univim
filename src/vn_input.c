@@ -2,6 +2,7 @@
 #include "helpers.h"
 #include "buffer.h" // NORMAL / INSERT / VISUAL / CMDLINE mode bits, via libvim.h
 #include "env_vars.h"
+#include "toast.h"
 
 struct vn_input g_vn_input;
 char g_vn_debug_app_name[256] = "";
@@ -189,6 +190,7 @@ void vn_input_begin(struct vn_input* vn) {
 void vn_input_toggle(struct vn_input* vn) {
   vn->enabled = !vn->enabled;
   vn_engine_reset();
+  toast_show(vn->enabled ? "VI" : "EN");
 
   struct env_vars env_vars;
   env_vars_init(&env_vars);
