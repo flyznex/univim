@@ -197,6 +197,13 @@ bool event_tap_enabled(struct event_tap* event_tap) {
 
 void event_tap_load_blacklist(struct event_tap* event_tap) {
   event_tap->front_app_ignored = true;
+  // Safe defaults before workspace.m's startup resolution (or the first
+  // real app switch) ever runs -- g_event_tap is zero-initialized, so
+  // delay_us would otherwise be 0 (no safety margin) rather than the
+  // spec'd 5ms default in that narrow window. strategy's zero value
+  // already equals VN_STRATEGY_BACKSPACE; set explicitly for clarity.
+  event_tap->delay_us = 5000;
+  event_tap->strategy = VN_STRATEGY_BACKSPACE;
 
   char* home = getenv("HOME");
   char buf[512];
