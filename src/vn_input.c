@@ -22,6 +22,7 @@ enum vn_flow vn_input_route(struct vn_input* vn, bool is_vn_blacklisted,
 #include <string.h>
 #include <stdarg.h>
 #include <time.h>
+#include <sys/time.h>
 
 void vn_debug_log(const char* fmt, ...) {
   if (!g_vn_input.debug) return;
@@ -32,10 +33,13 @@ void vn_debug_log(const char* fmt, ...) {
   FILE* file = fopen(path, "a");
   if (!file) return;
 
-  time_t now = time(NULL);
+  // ms precision: the race we're chasing plays out within single-digit
+  // milliseconds, invisible at whole-second resolution.
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
   char stamp[32];
-  strftime(stamp, sizeof(stamp), "%H:%M:%S", localtime(&now));
-  fprintf(file, "[%s][%s] ", stamp, g_vn_debug_app_name);
+  strftime(stamp, sizeof(stamp), "%H:%M:%S", localtime(&tv.tv_sec));
+  fprintf(file, "[%s.%03d][%s] ", stamp, (int)(tv.tv_usec / 1000), g_vn_debug_app_name);
 
   va_list args;
   va_start(args, fmt);

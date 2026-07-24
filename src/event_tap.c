@@ -11,7 +11,22 @@ bool event_tap_check_blacklist(struct event_tap* event_tap,
   return blacklist_contains(event_tap->blacklist, event_tap->blacklist_count, app, bundle_id);
 }
 
-void vn_post_correction(int backspace_count, const unsigned char* insert_text, int insert_len) {
+// Posting to the frontmost app's pid directly (rather than broadcasting via
+// kCGAnnotatedSessionEventTap) delivers straight into that process's own
+// event queue alongside its real keystrokes, instead of re-entering the
+// whole session-wide HID pipeline from scratch -- which is what let a real
+// keystroke typed right after a correction win the race and land out of
+// order (reproduced in Ghostty and Chrome alike, since both go through this
+// same fallback). Falls back to the session-wide post if we don't have a
+// pid yet (e.g. before the first app-switch notification arrives).
+static void vn_post_event(pid_t target_pid, CGEventRef event) {
+  if (target_pid > 0) CGEventPostToPid(target_pid, event);
+  else CGEventPost(kCGAnnotatedSessionEventTap, event);
+}
+
+void vn_post_correction(pid_t target_pid, int backspace_count, const unsigned char* insert_text, int insert_len) {
+  vn_debug_log("vn_post_correction: pid=%d backspaces=%d insert_len=%d", target_pid, backspace_count, insert_len);
+
   CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
 
   for (int i = 0; i < backspace_count; i++) {
@@ -19,10 +34,11 @@ void vn_post_correction(int backspace_count, const unsigned char* insert_text, i
     CGEventRef up   = CGEventCreateKeyboardEvent(source, kVK_Delete, false);
     CGEventSetIntegerValueField(down, kCGEventSourceUserData, VN_SYNTH_TAG);
     CGEventSetIntegerValueField(up, kCGEventSourceUserData, VN_SYNTH_TAG);
-    CGEventPost(kCGAnnotatedSessionEventTap, down);
-    CGEventPost(kCGAnnotatedSessionEventTap, up);
+    vn_post_event(target_pid, down);
+    vn_post_event(target_pid, up);
     CFRelease(down);
     CFRelease(up);
+    vn_debug_log("vn_post_correction: posted backspace %d/%d", i + 1, backspace_count);
   }
 
   if (insert_len > 0) {
@@ -38,13 +54,27 @@ void vn_post_correction(int backspace_count, const unsigned char* insert_text, i
       CGEventKeyboardSetUnicodeString(down, length, chars);
       CGEventSetIntegerValueField(down, kCGEventSourceUserData, VN_SYNTH_TAG);
       CGEventSetIntegerValueField(up, kCGEventSourceUserData, VN_SYNTH_TAG);
-      CGEventPost(kCGAnnotatedSessionEventTap, down);
-      CGEventPost(kCGAnnotatedSessionEventTap, up);
+      vn_post_event(target_pid, down);
+      vn_post_event(target_pid, up);
       CFRelease(down);
       CFRelease(up);
       CFRelease(str);
+      vn_debug_log("vn_post_correction: posted insert unichar_len=%ld", (long) length);
+    } else {
+      // If this ever fires, the backspaces above already ran with nothing to
+      // replace them -- a silent drop with a completely different cause
+      // than event-ordering, so it needs to stand out from the timing noise.
+      vn_debug_log("vn_post_correction: CFStringCreateWithBytes FAILED, insert silently dropped");
     }
   }
+
+  // HACK: small safety margin on top of the pid-targeted delivery above --
+  // still gives a slower app (Chrome re-rendering a web text area, a
+  // terminal round-tripping through its PTY) a moment to actually apply the
+  // correction before the next physical keystroke is dequeued from the tap.
+  // Shorter than before (was 15ms) since targeted delivery does most of the
+  // ordering work now; raise it if a specific app still shows drops.
+  usleep(5000);
 
   CFRelease(source);
 }
@@ -71,6 +101,17 @@ CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventRef event) {
   CGEventFlags flags = CGEventGetFlags(event);
   int64_t keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
 
+  // OS-level key autorepeat firing while a letter is held (a slightly long
+  // press, not a deliberate second/third tap) feeds vn_engine a keystroke it
+  // can't tell apart from an intentional one -- and Telex treats a 3rd
+  // consecutive same letter as "cancel the diacritic", so one stray repeat
+  // silently corrupts the word being composed (e.g. "thấy" -> "thâấ").
+  // Repeated Delete still needs to reach vn_engine_process_backspace to
+  // keep its internal buffer in step with on-screen deletes from held
+  // Backspace, so only letters are dropped here.
+  bool is_repeat = CGEventGetIntegerValueField(event, kCGKeyboardEventAutorepeat);
+  if (is_repeat && keycode != kVK_Delete) return NULL;
+
   struct vn_engine_result result = (keycode == kVK_Delete)
     ? vn_engine_process_backspace()
     : vn_engine_process_key(character,
@@ -82,7 +123,7 @@ CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventRef event) {
 
   if (result.backspace_count == 0 && result.insert_len == 0) return event;
 
-  vn_post_correction(result.backspace_count, result.insert_text, result.insert_len);
+  vn_post_correction(event_tap->front_pid, result.backspace_count, result.insert_text, result.insert_len);
   return NULL;
 }
 
@@ -111,6 +152,7 @@ static CGEventRef key_handler(CGEventTapProxy proxy, CGEventType type,
       }
     } break;
     case kCGEventLeftMouseDown: {
+      vn_debug_log("kCGEventLeftMouseDown: vn_engine_reset");
       vn_engine_reset();
     } break;
     case kCGEventKeyDown: {

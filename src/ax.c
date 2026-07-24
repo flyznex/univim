@@ -304,6 +304,16 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
       if (ax->buffer.cursor.selection > 0) flow = VN_FLOW_NONE;
     }
 
+    // Same reasoning as event_tap.c's vn_synthetic_process: a stray OS
+    // autorepeat on a held letter looks identical to a deliberate extra tap
+    // to vn_engine, and Telex reads a 3rd consecutive same letter as
+    // "cancel the diacritic" -- so it corrupts the word being composed.
+    // Repeated Delete is left alone; buffer_input_string still needs every
+    // one to keep vim's model in sync with held-Backspace deletes.
+    if (flow == VN_FLOW_VIM_BUFFER && keycode != kVK_Delete
+        && CGEventGetIntegerValueField(event, kCGKeyboardEventAutorepeat))
+      return NULL;
+
     if (flow == VN_FLOW_VIM_BUFFER) {
       struct vn_engine_result result = (keycode == kVK_Delete)
         ? vn_engine_process_backspace()
@@ -335,7 +345,7 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
         // NORMAL-mode motions/visual mode.
         vn_debug_log("flow_b correction: backspaces=%d insert_len=%d",
                     result.backspace_count, result.insert_len);
-        vn_post_correction(result.backspace_count, result.insert_text, result.insert_len);
+        vn_post_correction(g_event_tap.front_pid, result.backspace_count, result.insert_text, result.insert_len);
         return NULL;
       }
       // ponytail: vn_engine returns an empty result (no backspaces, nothing

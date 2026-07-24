@@ -114,6 +114,18 @@ struct vn_engine_result vn_engine_process_key(unsigned int ch, bool shift, bool 
 }
 
 struct vn_engine_result vn_engine_process_backspace(void) {
+  if (word_history_len == 0) {
+    // Nothing left of the current word for libunikey to be tracking (e.g.
+    // the previous backspace already consumed back through a word
+    // boundary). Calling UnikeyBackspacePress() again here hits an
+    // already-empty internal buffer in libunikey and can wedge its state so
+    // it silently stops recognizing the *next* word's Telex compositions
+    // (confirmed: "aa" no longer converting to "a with hat" at all
+    // afterwards). Treat it as a plain passthrough delete instead.
+    struct vn_engine_result result = { .backspace_count = 0, .insert_text = NULL, .insert_len = 0 };
+    return result;
+  }
+
   UnikeyBackspacePress();
 
   int char_backspaces = bytes_to_char_count(UnikeyBackspaces);
