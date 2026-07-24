@@ -248,8 +248,19 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
     enum vn_flow flow = vn_input_route(&g_vn_input, g_event_tap.vn_ignored,
                                        g_event_tap.front_app_ignored,
                                        ax->buffer.cursor.mode           );
+
+    int64_t keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+    if (flow == VN_FLOW_VIM_BUFFER && keycode == kVK_Delete) {
+      // Deleting an active native text selection (e.g. select-all then
+      // Backspace) is not a Telex/VNI tone-undo -- refresh the real
+      // selection state first so a selected block gets deleted whole
+      // instead of the engine's single-character tone-undo count silently
+      // truncating it to one character.
+      ax_get_cursor(ax);
+      if (ax->buffer.cursor.selection > 0) flow = VN_FLOW_NONE;
+    }
+
     if (flow == VN_FLOW_VIM_BUFFER) {
-      int64_t keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
       struct vn_engine_result result = (keycode == kVK_Delete)
         ? vn_engine_process_backspace()
         : vn_engine_process_key(character, flags & FLAG_SHIFT,
