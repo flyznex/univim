@@ -10,6 +10,21 @@ bool vn_input_blacklisted(struct vn_input* vn, char* app, char* bundle_id) {
   return blacklist_contains(vn->blacklist, vn->blacklist_count, app, bundle_id);
 }
 
+void vn_input_lookup_override(struct vn_input* vn, char* app, char* bundle_id,
+                              int* out_delay_us, enum vn_correction_strategy* out_strategy) {
+  *out_delay_us = 5000;
+  *out_strategy = VN_STRATEGY_BACKSPACE;
+  if (!app || !bundle_id) return;
+
+  for (uint32_t i = 0; i < vn->overrides_count; i++) {
+    if (strcmp(vn->overrides[i].app, app) == 0 || strcmp(vn->overrides[i].app, bundle_id) == 0) {
+      *out_delay_us = vn->overrides[i].delay_us;
+      *out_strategy = vn->overrides[i].strategy;
+      return;
+    }
+  }
+}
+
 enum vn_flow vn_input_route(struct vn_input* vn, bool is_vn_blacklisted,
                             bool front_app_ignored, uint32_t cursor_mode) {
   if (!vn->enabled || is_vn_blacklisted) return VN_FLOW_NONE;
@@ -161,6 +176,12 @@ void vn_input_begin(struct vn_input* vn) {
   struct string_list list = load_string_list(path);
   vn->blacklist = list.items;
   vn->blacklist_count = list.count;
+
+  char overrides_path[512];
+  snprintf(overrides_path, sizeof(overrides_path), "%s/.config/svim/vn_overrides", home);
+  struct vn_override_list overrides = load_vn_overrides(overrides_path);
+  vn->overrides = overrides.items;
+  vn->overrides_count = overrides.count;
 
   vn_engine_init(vn->method);
 }
