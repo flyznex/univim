@@ -10,6 +10,7 @@ extern char* string_copy(char* s);
 
 struct event_tap {
   bool front_app_ignored;
+  bool vn_ignored;
   uint32_t blacklist_count;
   char** blacklist;
   CFMachPortRef handle;
