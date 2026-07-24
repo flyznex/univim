@@ -1,3 +1,6 @@
 [submodule "libvim"]
 	path = libvim
 	url = git@github.com:FelixKratz/libvim.git
+[submodule "libunikey"]
+	path = libunikey
+	url = https://github.com/inteplus/libunikey.git
