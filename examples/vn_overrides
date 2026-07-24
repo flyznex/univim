@@ -7,3 +7,12 @@
 #
 # Ghostty 15 backspace
 # Visual Studio Code 0 select
+#
+# `select` sends Shift+Left to highlight the characters being corrected,
+# then types over the selection -- this only works in apps with a real text
+# field that treats a keyboard-driven selection as replaceable (confirmed
+# working in that kind of app). Terminal emulators (Ghostty, iTerm2,
+# Terminal.app, ...) generally do not support keyboard-driven selection at
+# all -- Shift+Left just moves the cursor -- so `select` corrupts text
+# there instead of fixing it (confirmed empirically). Use `backspace` for
+# any terminal app; only reach for `select` on GUI editors/IDEs.
