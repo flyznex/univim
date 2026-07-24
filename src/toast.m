@@ -91,3 +91,19 @@ void toast_show(const char* text) {
                    dispatch_get_main_queue(),
                    g_pending_dismiss);
 }
+
+// MARK: - Menu bar status item
+
+static NSStatusItem* g_status_item = nil;
+
+void statusbar_init(void) {
+    if (g_status_item) return;
+    g_status_item = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
+    [g_status_item.button setTitle:@"EN"];
+    [g_status_item.button setFont:[NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightMedium]];
+}
+
+void statusbar_update(const char* text) {
+    if (!g_status_item) return;
+    [g_status_item.button setTitle:[NSString stringWithUTF8String:text]];
+}

@@ -185,12 +185,16 @@ void vn_input_begin(struct vn_input* vn) {
   vn->overrides_count = overrides.count;
 
   vn_engine_init(vn->method);
+  statusbar_init();
 }
 
 void vn_input_toggle(struct vn_input* vn) {
   vn->enabled = !vn->enabled;
   vn_engine_reset();
-  toast_show(vn->enabled ? "VI" : "EN");
+  
+  const char* label = vn->enabled ? "VI" : "EN";
+  toast_show(label);
+  statusbar_update(label);
 
   struct env_vars env_vars;
   env_vars_init(&env_vars);
