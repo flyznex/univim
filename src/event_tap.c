@@ -1,15 +1,9 @@
 #include "event_tap.h"
+#include "helpers.h"
 
 bool event_tap_check_blacklist(struct event_tap* event_tap,
                                char* app, char* bundle_id  ) {
-  if (!app || !bundle_id) return true;
-  for (int i = 0; i < event_tap->blacklist_count; i++)
-    if (strcmp(event_tap->blacklist[i], app) == 0 
-        || strcmp(event_tap->blacklist[i], bundle_id) == 0) {
-      return true;
-    }
-
-  return false;
+  return blacklist_contains(event_tap->blacklist, event_tap->blacklist_count, app, bundle_id);
 }
 
 static CGEventRef key_handler(CGEventTapProxy proxy, CGEventType type,
@@ -41,28 +35,15 @@ bool event_tap_enabled(struct event_tap* event_tap) {
 }
 
 void event_tap_load_blacklist(struct event_tap* event_tap) {
-  event_tap->blacklist = NULL;
-  event_tap->blacklist_count = 0;
   event_tap->front_app_ignored = true;
 
   char* home = getenv("HOME");
   char buf[512];
   snprintf(buf, sizeof(buf), "%s/%s", home, ".config/svim/blacklist");
 
-  FILE *file = fopen(buf, "r");
-
-  if (!file) return;
-
-  char line[255];
-  while (fgets(line, 255, file)) {
-    uint32_t len = strlen(line);
-    if (line[len - 1] == '\n') line[len - 1] = '\0';
-    event_tap->blacklist = realloc(event_tap->blacklist,
-                                sizeof(char**) * ++event_tap->blacklist_count);
-
-    event_tap->blacklist[event_tap->blacklist_count - 1] = string_copy(line);
-  }
-  fclose(file);
+  struct string_list list = load_string_list(buf);
+  event_tap->blacklist = list.items;
+  event_tap->blacklist_count = list.count;
 }
 
 bool event_tap_begin(struct event_tap* event_tap) {
