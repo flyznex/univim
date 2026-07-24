@@ -14,11 +14,16 @@ static void type_sequence(const char* keys, char* out, size_t out_size) {
   for (const char* k = keys; *k; k++) {
     struct vn_engine_result r = vn_engine_process_key((unsigned char) *k, false, false);
     if (r.backspace_count > 0) {
-      // backspace_count is a byte count, not a codepoint count: libunikey's
-      // getSeqSteps() (ukengine.cpp) returns UTF-8 output byte length for
-      // CONV_CHARSET_UNIUTF8, so a single multi-byte codepoint being replaced
-      // reports backspace_count > 1.
-      len = (size_t) r.backspace_count > len ? 0 : len - (size_t) r.backspace_count;
+      // backspace_count is a character count (vn_engine.c converts
+      // libunikey's raw byte count into this via its own tracked word
+      // history) — remove that many trailing *characters*, which may span
+      // more than that many bytes, by skipping UTF-8 continuation bytes.
+      int remaining = r.backspace_count;
+      while (remaining > 0 && len > 0) {
+        len--;
+        while (len > 0 && (out[len] & 0xC0) == 0x80) len--;
+        remaining--;
+      }
       out[len] = '\0';
     }
     if (r.insert_len > 0) {
@@ -51,6 +56,9 @@ int main(void) {
   check("telex dd", VN_METHOD_TELEX, "ddi", "\xc4\x91i");                        // "đi"
   check("telex word boundary", VN_METHOD_TELEX, "anh a", "anh a");               // no cross-word leak
   check("vni compound vowel", VN_METHOD_VNI, "vie6t5", "vi\xe1\xbb\x87t");       // "việt" via VNI (6=circumflex, 5=nặng, applied once after the syllable)
+  // regression: tone mark reaching back past a leading consonant + trailing
+  // consonant must not eat the leading consonant (byte-vs-char backspace bug)
+  check("telex tone past trailing consonant", VN_METHOD_TELEX, "thaays", "th\xe1\xba\xa5y"); // "thấy"
 
   printf("ALL TESTS PASSED\n");
   return 0;
