@@ -1,0 +1,9 @@
+# ~/.config/svim/vn_overrides
+# format: AppName delay_ms strategy
+# strategy: backspace | select  (delay_ms ignored when strategy=select)
+#
+# Uncomment and edit for an app that still drops/reorders characters at the
+# default 5ms + backspace strategy:
+#
+# Ghostty 15 backspace
+# Visual Studio Code 0 select
