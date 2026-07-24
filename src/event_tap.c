@@ -101,7 +101,31 @@ void vn_post_correction(struct vn_post_target target, int backspace_count, const
 // Chrome's own web-content text areas without -DMANUAL_AX -- common enough,
 // per the project's own README "Known Issues", that VN shouldn't just give
 // up whenever vim-mode's AX detection does).
+// Switching tmux windows/panes happens entirely inside the terminal's PTY --
+// invisible to both CGEventTap and NSWorkspace, since the terminal itself
+// stays the frontmost app throughout. vn_engine has no signal to reset on,
+// so a word left mid-composition in one tmux window can still be "continued"
+// by the first keystroke typed in a completely different window after the
+// switch: the resulting backspace count looks entirely plausible (1-2 chars,
+// same shape as a real Telex tone correction) but lands in the new window,
+// deleting into its prompt instead (reproduced consistently; not a race --
+// raising vn_overrides' delay_ms had no effect). Switching windows always
+// takes at least a couple hundred ms, while keystrokes within one real word
+// never pause anywhere near that long, so treat a long idle gap as an
+// implicit context change and reset before treating this keystroke as a
+// continuation of whatever came before it.
+#define VN_STALE_THRESHOLD_NS (2ULL * NSEC_PER_SEC)
+static uint64_t last_activity_ns = 0;
+
 CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventRef event) {
+  uint64_t now_ns = CGEventGetTimestamp(event);
+  if (last_activity_ns != 0 && now_ns > last_activity_ns
+      && now_ns - last_activity_ns > VN_STALE_THRESHOLD_NS) {
+    vn_debug_log("vn_synthetic_process: idle > 2s, resetting stale composition state");
+    vn_engine_reset();
+  }
+  last_activity_ns = now_ns;
+
   // cursor_mode is irrelevant here: vn_input_route short-circuits on
   // front_app_ignored (always true on this call path) before ever looking
   // at it, so 0 is a safe placeholder value, not a guess.
@@ -126,6 +150,22 @@ CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventRef event) {
       || keycode == kVK_Home || keycode == kVK_End
       || keycode == kVK_PageUp || keycode == kVK_PageDown)
     return event;
+
+  // Enter never legitimately continues a composition into whatever comes
+  // next (a submitted terminal line, a cleared chat field) -- but
+  // UnikeyFilter(CR) just reports "no correction" rather than clearing its
+  // own internal buffer, so without an explicit reset here the *next*
+  // keystroke on the fresh line can still be evaluated as a continuation of
+  // the word typed before Enter. Confirmed empirically: the resulting
+  // single, entirely plausible-looking backspace has nothing left of that
+  // old word to remove on the new line, so it deletes into the freshly
+  // drawn shell prompt instead (reproduced consistently, same prompt glyph
+  // torn every time -- not a race, since raising the correction delay via
+  // vn_overrides had no effect).
+  if (keycode == kVK_Return) {
+    vn_engine_reset();
+    return event;
+  }
 
   // OS-level key autorepeat firing while a letter is held (a slightly long
   // press, not a deliberate second/third tap) feeds vn_engine a keystroke it
