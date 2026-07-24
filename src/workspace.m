@@ -17,6 +17,23 @@ void workspace_begin(void **context) {
                 selector:@selector(appSwitched:)
                 name:NSWorkspaceDidActivateApplicationNotification
                 object:nil];
+
+        // The notification above only fires on a *future* app switch -- the
+        // app already frontmost when svim starts (e.g. right after a deploy
+        // restart) never gets one, leaving g_event_tap.front_pid/delay_us/
+        // strategy at their zero-initialized defaults (pid=0 falls back to
+        // the session-wide CGEventPost broadcast instead of the targeted
+        // CGEventPostToPid, reintroducing the exact delivery race that fix
+        // was for) until the user happens to switch away and back. Resolve
+        // the current frontmost app once, immediately, through the same
+        // handler used for every later switch.
+        NSRunningApplication* frontmost = [[NSWorkspace sharedWorkspace] frontmostApplication];
+        if (frontmost) {
+          NSNotification* initial = [NSNotification notificationWithName:NSWorkspaceDidActivateApplicationNotification
+                                                                    object:nil
+                                                                  userInfo:@{NSWorkspaceApplicationKey: frontmost}];
+          [self appSwitched:initial];
+        }
     }
 
     return self;
