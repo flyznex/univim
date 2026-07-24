@@ -3,6 +3,7 @@
 #include "event_tap.h"
 #include "ax.h"
 #include "workspace.h"
+#include "vn_input.h"
 
 void* g_workspace;
 
@@ -42,6 +43,7 @@ int main (int argc, char *argv[]) {
   ax_begin(&g_ax);
   event_tap_begin(&g_event_tap);
   workspace_begin(&g_workspace);
+  vn_input_begin(&g_vn_input);
 
   CFRunLoopRun();
   return 0;

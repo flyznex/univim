@@ -1,6 +1,7 @@
 #include "workspace.h"
 #include "buffer.h"
 #include "event_tap.h"
+#include "vn_input.h"
 
 void workspace_begin(void **context) {
     workspace_context *ws_context = [workspace_context alloc];
@@ -44,6 +45,8 @@ void workspace_begin(void **context) {
     g_event_tap.front_app_ignored = event_tap_check_blacklist(&g_event_tap,
                                                               name,
                                                               bundle_id    );
+    g_event_tap.vn_ignored = vn_input_blacklisted(&g_vn_input, name, bundle_id);
+    vn_engine_reset();
     ax_front_app_changed(&g_ax, pid);
 }
 

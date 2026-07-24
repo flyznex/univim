@@ -128,7 +128,9 @@ void event_tap_load_blacklist(struct event_tap* event_tap) {
 bool event_tap_begin(struct event_tap* event_tap) {
   event_tap_load_blacklist(event_tap);
 
-  event_tap->mask = 1 << kCGEventKeyDown;
+  event_tap->mask = (1 << kCGEventKeyDown)
+                  | (1 << kCGEventFlagsChanged)
+                  | (1 << kCGEventLeftMouseDown);
   event_tap->handle = CGEventTapCreate(kCGAnnotatedSessionEventTap,
                                        kCGHeadInsertEventTap,
                                        kCGEventTapOptionDefault,
