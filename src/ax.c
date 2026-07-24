@@ -345,7 +345,8 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
         // NORMAL-mode motions/visual mode.
         vn_debug_log("flow_b correction: backspaces=%d insert_len=%d",
                     result.backspace_count, result.insert_len);
-        vn_post_correction(g_event_tap.front_pid, result.backspace_count, result.insert_text, result.insert_len);
+        struct vn_post_target target = { .pid = g_event_tap.front_pid, .delay_us = 5000, .strategy = VN_STRATEGY_BACKSPACE };
+        vn_post_correction(target, result.backspace_count, result.insert_text, result.insert_len);
         return NULL;
       }
       // ponytail: vn_engine returns an empty result (no backspaces, nothing

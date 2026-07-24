@@ -24,21 +24,35 @@ static void vn_post_event(pid_t target_pid, CGEventRef event) {
   else CGEventPost(kCGAnnotatedSessionEventTap, event);
 }
 
-void vn_post_correction(pid_t target_pid, int backspace_count, const unsigned char* insert_text, int insert_len) {
-  vn_debug_log("vn_post_correction: pid=%d backspaces=%d insert_len=%d", target_pid, backspace_count, insert_len);
+void vn_post_correction(struct vn_post_target target, int backspace_count, const unsigned char* insert_text, int insert_len) {
+  vn_debug_log("vn_post_correction: pid=%d backspaces=%d insert_len=%d strategy=%d",
+              target.pid, backspace_count, insert_len, target.strategy);
 
   CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+  bool select_strategy = target.strategy == VN_STRATEGY_SELECT;
+  CGKeyCode backspace_key = select_strategy ? kVK_LeftArrow : kVK_Delete;
 
   for (int i = 0; i < backspace_count; i++) {
-    CGEventRef down = CGEventCreateKeyboardEvent(source, kVK_Delete, true);
-    CGEventRef up   = CGEventCreateKeyboardEvent(source, kVK_Delete, false);
+    CGEventRef down = CGEventCreateKeyboardEvent(source, backspace_key, true);
+    CGEventRef up   = CGEventCreateKeyboardEvent(source, backspace_key, false);
+    if (select_strategy) {
+      // Select-then-replace instead of N discrete deletes: Shift+Left
+      // extends a selection backward one character at a time; the Unicode
+      // insert below then types over that selection, which every native
+      // macOS text field treats as a single replace -- fewer discrete
+      // events than N deletes + an insert, per Gõ Nhanh's approach for
+      // apps that still drop characters at the default backspace strategy.
+      CGEventSetFlags(down, kCGEventFlagMaskShift);
+      CGEventSetFlags(up, kCGEventFlagMaskShift);
+    }
     CGEventSetIntegerValueField(down, kCGEventSourceUserData, VN_SYNTH_TAG);
     CGEventSetIntegerValueField(up, kCGEventSourceUserData, VN_SYNTH_TAG);
-    vn_post_event(target_pid, down);
-    vn_post_event(target_pid, up);
+    vn_post_event(target.pid, down);
+    vn_post_event(target.pid, up);
     CFRelease(down);
     CFRelease(up);
-    vn_debug_log("vn_post_correction: posted backspace %d/%d", i + 1, backspace_count);
+    vn_debug_log("vn_post_correction: posted %s %d/%d",
+                select_strategy ? "select" : "backspace", i + 1, backspace_count);
   }
 
   if (insert_len > 0) {
@@ -54,8 +68,8 @@ void vn_post_correction(pid_t target_pid, int backspace_count, const unsigned ch
       CGEventKeyboardSetUnicodeString(down, length, chars);
       CGEventSetIntegerValueField(down, kCGEventSourceUserData, VN_SYNTH_TAG);
       CGEventSetIntegerValueField(up, kCGEventSourceUserData, VN_SYNTH_TAG);
-      vn_post_event(target_pid, down);
-      vn_post_event(target_pid, up);
+      vn_post_event(target.pid, down);
+      vn_post_event(target.pid, up);
       CFRelease(down);
       CFRelease(up);
       CFRelease(str);
@@ -72,9 +86,10 @@ void vn_post_correction(pid_t target_pid, int backspace_count, const unsigned ch
   // still gives a slower app (Chrome re-rendering a web text area, a
   // terminal round-tripping through its PTY) a moment to actually apply the
   // correction before the next physical keystroke is dequeued from the tap.
-  // Shorter than before (was 15ms) since targeted delivery does most of the
-  // ordering work now; raise it if a specific app still shows drops.
-  usleep(5000);
+  // Select-replace always skips this -- fewer discrete events already means
+  // less to race against, and it's the escape hatch for apps where even a
+  // tuned backspace delay isn't enough.
+  if (!select_strategy) usleep(target.delay_us);
 
   CFRelease(source);
 }
@@ -123,7 +138,8 @@ CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventRef event) {
 
   if (result.backspace_count == 0 && result.insert_len == 0) return event;
 
-  vn_post_correction(event_tap->front_pid, result.backspace_count, result.insert_text, result.insert_len);
+  struct vn_post_target target = { .pid = event_tap->front_pid, .delay_us = 5000, .strategy = VN_STRATEGY_BACKSPACE };
+  vn_post_correction(target, result.backspace_count, result.insert_text, result.insert_len);
   return NULL;
 }
 
