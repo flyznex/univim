@@ -116,6 +116,17 @@ CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventRef event) {
   CGEventFlags flags = CGEventGetFlags(event);
   int64_t keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
 
+  // Pure cursor-navigation keys carry no text for vn_engine to compose (same
+  // reasoning as ax.c's identical check) -- without this, the autorepeat
+  // guard below treats a held arrow key as a held letter and drops every
+  // repeat after the first, so holding Right/Down/etc. here moved the
+  // cursor once and then stopped.
+  if (keycode == kVK_LeftArrow || keycode == kVK_RightArrow
+      || keycode == kVK_UpArrow || keycode == kVK_DownArrow
+      || keycode == kVK_Home || keycode == kVK_End
+      || keycode == kVK_PageUp || keycode == kVK_PageDown)
+    return event;
+
   // OS-level key autorepeat firing while a letter is held (a slightly long
   // press, not a deliberate second/third tap) feeds vn_engine a keystroke it
   // can't tell apart from an intentional one -- and Telex treats a 3rd
