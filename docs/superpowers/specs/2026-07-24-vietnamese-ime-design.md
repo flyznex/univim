@@ -90,7 +90,7 @@ disabled) while vim-mode's existing per-app blacklist behavior is unchanged.
    `ax_set_buffer()` writeback) is untouched.
 
 **Flow C — hotkey toggle:**
-1. The configured modifier combo (default `leftcontrol+leftshift`) is
+1. The configured modifier combo (default `control+shift`) is
    detected via `kCGEventFlagsChanged` in `key_handler`, *before* the
    front_app_ignored/ax branches — swallowed so no app ever sees it.
 2. `vn_enabled = !vn_enabled`.
@@ -115,7 +115,7 @@ as the existing `~/.config/svim/blacklist`, loaded through the new shared
 split on `=`:
 ```
 method=telex
-hotkey=leftcontrol+leftshift
+hotkey=control+shift
 ```
 - `method`: `telex` (default) or `vni`.
 - `hotkey`: modifier combo toggling VN/EN, matched via exact `CGEventFlags`

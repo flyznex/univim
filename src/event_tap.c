@@ -4,6 +4,7 @@
 #include <Carbon/Carbon.h> // kVK_Delete
 
 #define VN_SYNTH_TAG 0x564E5359 // 'VNSY'
+#define VN_HOTKEY_RELEVANT_FLAGS (kCGEventFlagMaskControl | kCGEventFlagMaskShift | kCGEventFlagMaskCommand | kCGEventFlagMaskAlternate)
 
 bool event_tap_check_blacklist(struct event_tap* event_tap,
                                char* app, char* bundle_id  ) {
@@ -27,20 +28,22 @@ static void vn_post_correction(int backspace_count, const unsigned char* insert_
   if (insert_len > 0) {
     CFStringRef str = CFStringCreateWithBytes(NULL, insert_text, insert_len,
                                               kCFStringEncodingUTF8, false);
-    CFIndex length = CFStringGetLength(str);
-    UniChar chars[length];
-    CFStringGetCharacters(str, CFRangeMake(0, length), chars);
+    if (str) {
+      CFIndex length = CFStringGetLength(str);
+      UniChar chars[length];
+      CFStringGetCharacters(str, CFRangeMake(0, length), chars);
 
-    CGEventRef down = CGEventCreateKeyboardEvent(source, 0, true);
-    CGEventRef up   = CGEventCreateKeyboardEvent(source, 0, false);
-    CGEventKeyboardSetUnicodeString(down, length, chars);
-    CGEventSetIntegerValueField(down, kCGEventSourceUserData, VN_SYNTH_TAG);
-    CGEventSetIntegerValueField(up, kCGEventSourceUserData, VN_SYNTH_TAG);
-    CGEventPost(kCGAnnotatedSessionEventTap, down);
-    CGEventPost(kCGAnnotatedSessionEventTap, up);
-    CFRelease(down);
-    CFRelease(up);
-    CFRelease(str);
+      CGEventRef down = CGEventCreateKeyboardEvent(source, 0, true);
+      CGEventRef up   = CGEventCreateKeyboardEvent(source, 0, false);
+      CGEventKeyboardSetUnicodeString(down, length, chars);
+      CGEventSetIntegerValueField(down, kCGEventSourceUserData, VN_SYNTH_TAG);
+      CGEventSetIntegerValueField(up, kCGEventSourceUserData, VN_SYNTH_TAG);
+      CGEventPost(kCGAnnotatedSessionEventTap, down);
+      CGEventPost(kCGAnnotatedSessionEventTap, up);
+      CFRelease(down);
+      CFRelease(up);
+      CFRelease(str);
+    }
   }
 
   CFRelease(source);
@@ -86,7 +89,7 @@ static CGEventRef key_handler(CGEventTapProxy proxy, CGEventType type,
     } break;
     case kCGEventFlagsChanged: {
       CGEventFlags flags = CGEventGetFlags(event);
-      if ((flags & g_vn_input.hotkey_mask) == g_vn_input.hotkey_mask) {
+      if (g_vn_input.hotkey_mask && (flags & VN_HOTKEY_RELEVANT_FLAGS) == g_vn_input.hotkey_mask) {
         vn_input_toggle(&g_vn_input);
       }
     } break;

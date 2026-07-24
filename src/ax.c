@@ -247,8 +247,10 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
                                                     result.insert_len,
                                                     kCFStringEncodingUTF8,
                                                     false                );
-          text = cfstring_get_cstring(str);
-          CFRelease(str);
+          if (str) {
+            text = cfstring_get_cstring(str);
+            CFRelease(str);
+          }
         }
         buffer_input_string(&ax->buffer, result.backspace_count, text);
         if (text) free(text);
