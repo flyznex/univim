@@ -3,3 +3,4 @@ bin
 *.tgz
 .cache
 compile_commands.json
+.worktrees
