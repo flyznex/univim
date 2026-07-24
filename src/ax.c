@@ -122,17 +122,41 @@ static inline bool ax_get_selected_element(struct ax* ax) {
                                                 kAXFocusedUIElementAttribute,
                                                 &selected_element            );
 
-  if (ax->selected_element && selected_element
-                           && CFEqual(ax->selected_element,
-                                      selected_element     )) {
-    CFRelease(selected_element);
-    return true;
+  // Compared against last_focused_element (tracks the raw focus target
+  // regardless of role). For some apps (e.g. Chrome's own web-content areas
+  // without -DMANUAL_AX), AXUIElementCopyAttributeValue doesn't just return
+  // an element with an unrecognized role -- it returns NULL outright, every
+  // single call, with no identity to compare at all. Treating "NULL both
+  // times" as a change (the naive "both non-NULL and CFEqual" check below
+  // would) means every keystroke looks like a brand new focus, triggering
+  // ax_clear()/vn_engine_reset() constantly and wiping Telex/VNI
+  // composition state before it can ever combine two keystrokes. Only a
+  // transition between "AX gave us something" and "AX gave us nothing" (or
+  // two different non-NULL elements) counts as a real change.
+  bool same_element;
+  if (!ax->last_focused_element && !selected_element) {
+    same_element = true;
+  } else if (ax->last_focused_element && selected_element) {
+    same_element = CFEqual(ax->last_focused_element, selected_element);
+  } else {
+    same_element = false;
   }
+  vn_debug_log("ax_get_selected_element: had_last=%d had_new=%d same=%d",
+              ax->last_focused_element != NULL, selected_element != NULL, same_element);
+  if (same_element) {
+    if (selected_element) CFRelease(selected_element);
+    return (error == kAXErrorSuccess) && ax->role;
+  }
+
   ax_clear(ax);
   vn_engine_reset();
 
+  if (ax->last_focused_element) CFRelease(ax->last_focused_element);
+  ax->last_focused_element = selected_element;
+
   uint32_t role = 0;
   CFTypeRef role_ref = NULL;
+  CFTypeRef text_element = NULL;
 
   if (selected_element) {
     AXUIElementCopyAttributeValue(selected_element,
@@ -160,14 +184,14 @@ static inline bool ax_get_selected_element(struct ax* ax) {
 
     if (role_ref) CFRelease(role_ref);
 
-    if (!role) {
-      CFRelease(selected_element);
-      selected_element = NULL;
+    if (role) {
+      text_element = selected_element;
+      CFRetain(text_element); // separate reference from last_focused_element
     }
   }
 
   ax->role = role;
-  ax->selected_element = selected_element;
+  ax->selected_element = text_element;
 
   return (error == kAXErrorSuccess) && role;
 }
@@ -196,7 +220,15 @@ void ax_front_app_changed(struct ax* ax, pid_t pid) {
 }
 
 CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
-  if (!ax_process_selected_element(ax)) return event;
+  if (!ax_process_selected_element(ax)) {
+    vn_debug_log("ax_process_selected_element failed: role=%u is_supported=%d",
+                ax->role, ax->is_supported);
+    // AX can't see this element at all (e.g. Chrome's own web-content text
+    // areas without -DMANUAL_AX) -- vim-mode has nothing to work with here,
+    // but VN doesn't need AX in the first place, so fall back to the same
+    // AX-independent synthetic-keystroke delivery Flow A already uses.
+    return vn_synthetic_process(&g_event_tap, event);
+  }
 
   // A previous Enter was passed through while staying in INSERT mode (see
   // below) -- many apps (chat inputs especially) react to Enter by
@@ -217,9 +249,19 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
   UniChar character;
   CGEventKeyboardGetUnicodeString(event, 1, &count, &character);
   CGEventFlags flags = CGEventGetFlags(event);
+  int64_t keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
 
-  // int keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
-  // printf("%lc 0x%x %d\n", character, character, keycode);
+  // Pure cursor-navigation keys carry no text to insert -- CGEventKeyboardGetUnicodeString
+  // maps them to legacy control-range codepoints (e.g. Right Arrow -> 0x1D),
+  // which would otherwise be fed straight into vim's buffer/the VN engine as
+  // if the user had typed a literal character, corrupting the buffer every
+  // time the cursor is repositioned mid-word (very common while placing a
+  // Vietnamese tone mark).
+  if (keycode == kVK_LeftArrow || keycode == kVK_RightArrow
+      || keycode == kVK_UpArrow || keycode == kVK_DownArrow
+      || keycode == kVK_Home || keycode == kVK_End
+      || keycode == kVK_PageUp || keycode == kVK_PageDown)
+    return event;
 
   // Command
   if (flags & FLAG_COMMAND)
@@ -248,8 +290,10 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
     enum vn_flow flow = vn_input_route(&g_vn_input, g_event_tap.vn_ignored,
                                        g_event_tap.front_app_ignored,
                                        ax->buffer.cursor.mode           );
+    vn_debug_log("role=%u mode=%u flow=%d vn_enabled=%d vn_ignored=%d front_ignored=%d char=0x%x",
+                 ax->role, ax->buffer.cursor.mode, flow, g_vn_input.enabled,
+                 g_event_tap.vn_ignored, g_event_tap.front_app_ignored, character);
 
-    int64_t keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
     if (flow == VN_FLOW_VIM_BUFFER && keycode == kVK_Delete) {
       // Deleting an active native text selection (e.g. select-all then
       // Backspace) is not a Telex/VNI tone-undo -- refresh the real
@@ -280,7 +324,18 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
         }
         buffer_input_string(&ax->buffer, result.backspace_count, text);
         if (text) free(text);
-        ax_set_buffer(ax);
+        // Deliver via synthetic keystrokes (same mechanism as Flow A)
+        // instead of AXUIElementSetAttributeValue: web content (e.g. a
+        // Chrome page's own text areas, as opposed to Chrome's native
+        // address bar) is often JS-controlled and silently ignores or
+        // reverts a direct AX value write, while synthetic keystrokes go
+        // through the app's normal input pipeline and work reliably
+        // regardless of how good the app's AX support is. buffer_input_string
+        // above still keeps vim's own internal model in sync for
+        // NORMAL-mode motions/visual mode.
+        vn_debug_log("flow_b correction: backspaces=%d insert_len=%d",
+                    result.backspace_count, result.insert_len);
+        vn_post_correction(result.backspace_count, result.insert_text, result.insert_len);
         return NULL;
       }
       // ponytail: vn_engine returns an empty result (no backspaces, nothing

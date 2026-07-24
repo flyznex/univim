@@ -30,6 +30,7 @@ struct ax {
 
   uint32_t role;
   CFTypeRef selected_element;
+  CFTypeRef last_focused_element; // tracks focus changes even when unclassified (role == 0)
   AXUIElementRef system_element;
 
   struct buffer buffer;

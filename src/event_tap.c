@@ -11,7 +11,7 @@ bool event_tap_check_blacklist(struct event_tap* event_tap,
   return blacklist_contains(event_tap->blacklist, event_tap->blacklist_count, app, bundle_id);
 }
 
-static void vn_post_correction(int backspace_count, const unsigned char* insert_text, int insert_len) {
+void vn_post_correction(int backspace_count, const unsigned char* insert_text, int insert_len) {
   CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
 
   for (int i = 0; i < backspace_count; i++) {
@@ -49,11 +49,20 @@ static void vn_post_correction(int backspace_count, const unsigned char* insert_
   CFRelease(source);
 }
 
-static CGEventRef vn_flow_a_process(struct event_tap* event_tap, CGEventRef event) {
+// AX-independent VN delivery, matching how real Vietnamese IMEs (Unikey,
+// OpenKey) work: no AX read/write at all, just keystrokes in, keystrokes
+// out. Used both for apps svim's vim-mode ignores entirely (Flow A) and, by
+// ax.c, as a fallback when AX simply can't see the focused element (e.g.
+// Chrome's own web-content text areas without -DMANUAL_AX -- common enough,
+// per the project's own README "Known Issues", that VN shouldn't just give
+// up whenever vim-mode's AX detection does).
+CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventRef event) {
   // cursor_mode is irrelevant here: vn_input_route short-circuits on
   // front_app_ignored (always true on this call path) before ever looking
   // at it, so 0 is a safe placeholder value, not a guess.
   enum vn_flow flow = vn_input_route(&g_vn_input, event_tap->vn_ignored, true, 0);
+  vn_debug_log("vn_synthetic_process: flow=%d vn_enabled=%d vn_ignored=%d",
+              flow, g_vn_input.enabled, event_tap->vn_ignored);
   if (flow != VN_FLOW_SYNTHETIC) return event;
 
   UniCharCount count;
@@ -67,6 +76,9 @@ static CGEventRef vn_flow_a_process(struct event_tap* event_tap, CGEventRef even
     : vn_engine_process_key(character,
                              flags & kCGEventFlagMaskShift,
                              flags & kCGEventFlagMaskAlphaShift);
+
+  vn_debug_log("vn_synthetic_process: char=0x%x keycode=%lld backspaces=%d insert_len=%d",
+              character, keycode, result.backspace_count, result.insert_len);
 
   if (result.backspace_count == 0 && result.insert_len == 0) return event;
 
@@ -89,8 +101,13 @@ static CGEventRef key_handler(CGEventTapProxy proxy, CGEventType type,
     } break;
     case kCGEventFlagsChanged: {
       CGEventFlags flags = CGEventGetFlags(event);
+      vn_debug_log("flagsChanged: flags=0x%llx masked=0x%llx hotkey_mask=0x%llx",
+                  (unsigned long long) flags,
+                  (unsigned long long) (flags & VN_HOTKEY_RELEVANT_FLAGS),
+                  (unsigned long long) g_vn_input.hotkey_mask);
       if (g_vn_input.hotkey_mask && (flags & VN_HOTKEY_RELEVANT_FLAGS) == g_vn_input.hotkey_mask) {
         vn_input_toggle(&g_vn_input);
+        vn_debug_log("vn_input_toggle fired, enabled now=%d", g_vn_input.enabled);
       }
     } break;
     case kCGEventLeftMouseDown: {
@@ -102,7 +119,7 @@ static CGEventRef key_handler(CGEventTapProxy proxy, CGEventType type,
         if (g_ax.selected_element && g_ax.role) {
           ax_clear(&g_ax);
         }
-        return vn_flow_a_process(event_tap, event);
+        return vn_synthetic_process(event_tap, event);
       }
 
       return ax_process_event(&g_ax, event);

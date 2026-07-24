@@ -4,6 +4,7 @@
 #include "env_vars.h"
 
 struct vn_input g_vn_input;
+char g_vn_debug_app_name[256] = "";
 
 bool vn_input_blacklisted(struct vn_input* vn, char* app, char* bundle_id) {
   return blacklist_contains(vn->blacklist, vn->blacklist_count, app, bundle_id);
@@ -19,6 +20,31 @@ enum vn_flow vn_input_route(struct vn_input* vn, bool is_vn_blacklisted,
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
+#include <time.h>
+
+void vn_debug_log(const char* fmt, ...) {
+  if (!g_vn_input.debug) return;
+
+  char* home = getenv("HOME");
+  char path[512];
+  snprintf(path, sizeof(path), "%s/.config/svim/vn_debug.log", home);
+  FILE* file = fopen(path, "a");
+  if (!file) return;
+
+  time_t now = time(NULL);
+  char stamp[32];
+  strftime(stamp, sizeof(stamp), "%H:%M:%S", localtime(&now));
+  fprintf(file, "[%s][%s] ", stamp, g_vn_debug_app_name);
+
+  va_list args;
+  va_start(args, fmt);
+  vfprintf(file, fmt, args);
+  va_end(args);
+
+  fprintf(file, "\n");
+  fclose(file);
+}
 
 static CGEventFlags parse_hotkey(const char* str) {
   CGEventFlags mask = 0;
@@ -39,6 +65,7 @@ static CGEventFlags parse_hotkey(const char* str) {
 static void vn_config_load(struct vn_input* vn) {
   vn->method = VN_METHOD_TELEX;
   vn->hotkey_mask = kCGEventFlagMaskControl | kCGEventFlagMaskShift;
+  vn->debug = false;
 
   char* home = getenv("HOME");
   char path[512];
@@ -59,6 +86,8 @@ static void vn_config_load(struct vn_input* vn) {
       vn->method = (strcmp(value, "vni") == 0) ? VN_METHOD_VNI : VN_METHOD_TELEX;
     } else if (strcmp(key, "hotkey") == 0) {
       vn->hotkey_mask = parse_hotkey(value);
+    } else if (strcmp(key, "debug") == 0) {
+      vn->debug = (strcmp(value, "1") == 0 || strcmp(value, "on") == 0);
     }
   }
   fclose(file);

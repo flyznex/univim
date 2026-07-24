@@ -42,6 +42,8 @@ void workspace_begin(void **context) {
       }
     }
 
+    snprintf(g_vn_debug_app_name, sizeof(g_vn_debug_app_name), "%s", name ? name : "?");
+
     g_event_tap.front_app_ignored = event_tap_check_blacklist(&g_event_tap,
                                                               name,
                                                               bundle_id    );
