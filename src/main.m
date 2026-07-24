@@ -42,8 +42,13 @@ int main (int argc, char *argv[]) {
   acquire_lockfile();
   ax_begin(&g_ax);
   event_tap_begin(&g_event_tap);
-  workspace_begin(&g_workspace);
+  // vn_input_begin must run before workspace_begin: workspace_begin's init
+  // now resolves the frontmost app immediately (so front_pid/delay_us/
+  // strategy/vn_ignored aren't stuck at defaults until the first real app
+  // switch), and that resolution reads g_vn_input's blacklist/overrides --
+  // which don't exist until vn_input_begin loads them.
   vn_input_begin(&g_vn_input);
+  workspace_begin(&g_workspace);
 
   CFRunLoopRun();
   return 0;
