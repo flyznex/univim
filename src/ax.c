@@ -198,6 +198,21 @@ void ax_front_app_changed(struct ax* ax, pid_t pid) {
 CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
   if (!ax_process_selected_element(ax)) return event;
 
+  // A previous Enter was passed through while staying in INSERT mode (see
+  // below) -- many apps (chat inputs especially) react to Enter by
+  // submitting and clearing the field themselves, entirely outside our
+  // control. INSERT mode normally skips re-reading the real field (see the
+  // "Insert mode is passed and only synced later" comment further down) for
+  // performance, so without this we'd keep editing a stale internal copy
+  // and overwrite the app's now-empty field with old text on the next sync.
+  if (ax->resync_pending) {
+    ax->resync_pending = false;
+    if (ax->role == ROLE_TEXT) {
+      ax_get_text(ax);
+      ax_get_cursor(ax);
+    }
+  }
+
   UniCharCount count;
   UniChar character;
   CGEventKeyboardGetUnicodeString(event, 1, &count, &character);
@@ -271,7 +286,12 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
     }
 
     // Insert mode is passed and only synced later
-    if (was_insert && ax->buffer.cursor.mode & INSERT) return event;
+    if (was_insert && ax->buffer.cursor.mode & INSERT) {
+      // Enter is the common "submit" key (chat/forms) -- flag a resync for
+      // the next event in case the app cleared the field in response.
+      if (character == ENTER) ax->resync_pending = true;
+      return event;
+    }
     else if (was_insert) {
       if (!ax_get_text(ax) || !ax_get_cursor(ax)) return event;
     }
@@ -319,4 +339,5 @@ void ax_clear(struct ax* ax) {
   ax->role = 0;
   ax->selected_element = NULL;
   ax->is_supported = false;
+  ax->resync_pending = false;
 }

@@ -26,6 +26,7 @@ extern char* cfstring_get_cstring(CFStringRef text_ref);
 struct ax {
   bool is_privileged;
   bool is_supported;
+  bool resync_pending;
 
   uint32_t role;
   CFTypeRef selected_element;
