@@ -96,6 +96,60 @@ static void vn_config_load(struct vn_input* vn) {
   }
   fclose(file);
 }
+// Row format: "AppName delay_ms strategy" -- AppName may contain spaces
+// (e.g. "Visual Studio Code"), so this parses from the *end* of the line:
+// the last token is the strategy, the second-to-last is the delay, and
+// everything before that (trimmed) is the app name.
+static bool parse_override_line(char* line, struct vn_override* out) {
+  char* last_space = strrchr(line, ' ');
+  if (!last_space) return false;
+  char* strategy_str = last_space + 1;
+  *last_space = '\0';
+
+  char* second_last_space = strrchr(line, ' ');
+  if (!second_last_space) return false;
+  char* delay_str = second_last_space + 1;
+  *second_last_space = '\0';
+
+  if (line[0] == '\0') return false;
+
+  enum vn_correction_strategy strategy;
+  if (strcmp(strategy_str, "backspace") == 0) strategy = VN_STRATEGY_BACKSPACE;
+  else if (strcmp(strategy_str, "select") == 0) strategy = VN_STRATEGY_SELECT;
+  else return false;
+
+  if (delay_str[0] == '\0') return false;
+  for (char* c = delay_str; *c; c++)
+    if (*c < '0' || *c > '9') return false;
+
+  out->app = string_copy(line);
+  out->delay_us = atoi(delay_str) * 1000;
+  out->strategy = strategy;
+  return true;
+}
+
+struct vn_override_list load_vn_overrides(const char* path) {
+  struct vn_override_list list = { NULL, 0 };
+
+  FILE* file = fopen(path, "r");
+  if (!file) return list;
+
+  char line[255];
+  while (fgets(line, sizeof(line), file)) {
+    uint32_t len = strlen(line);
+    if (len > 0 && line[len - 1] == '\n') line[--len] = '\0';
+    if (len == 0) continue;
+    if (line[0] == '#') continue;
+
+    struct vn_override parsed;
+    if (!parse_override_line(line, &parsed)) continue;
+
+    list.items = realloc(list.items, sizeof(struct vn_override) * ++list.count);
+    list.items[list.count - 1] = parsed;
+  }
+  fclose(file);
+  return list;
+}
 
 void vn_input_begin(struct vn_input* vn) {
   vn->enabled = false;

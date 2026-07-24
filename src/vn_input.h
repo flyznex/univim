@@ -5,6 +5,18 @@
 #include "vn_engine.h"
 
 enum vn_flow { VN_FLOW_NONE, VN_FLOW_SYNTHETIC, VN_FLOW_VIM_BUFFER };
+enum vn_correction_strategy { VN_STRATEGY_BACKSPACE, VN_STRATEGY_SELECT };
+
+struct vn_override {
+  char* app;
+  int delay_us;
+  enum vn_correction_strategy strategy;
+};
+
+struct vn_override_list {
+  struct vn_override* items;
+  uint32_t count;
+};
 
 struct vn_input {
   bool enabled;
@@ -20,6 +32,7 @@ extern char g_vn_debug_app_name[256]; // current frontmost app, for vn_debug_log
 
 void vn_input_begin(struct vn_input* vn);
 bool vn_input_blacklisted(struct vn_input* vn, char* app, char* bundle_id);
+struct vn_override_list load_vn_overrides(const char* path);
 enum vn_flow vn_input_route(struct vn_input* vn, bool is_vn_blacklisted,
                             bool front_app_ignored, uint32_t cursor_mode);
 void vn_input_toggle(struct vn_input* vn);
