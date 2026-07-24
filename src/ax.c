@@ -1,5 +1,8 @@
 #include "ax.h"
 #include "buffer.h"
+#include "event_tap.h"
+#include "vn_input.h"
+#include <Carbon/Carbon.h> // kVK_Delete
 
 void ax_begin(struct ax* ax) {
   buffer_begin(&ax->buffer);
@@ -126,6 +129,7 @@ static inline bool ax_get_selected_element(struct ax* ax) {
     return true;
   }
   ax_clear(ax);
+  vn_engine_reset();
 
   uint32_t role = 0;
   CFTypeRef role_ref = NULL;
@@ -225,7 +229,44 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
     
     bool was_insert = ax->buffer.cursor.mode & INSERT
                       || !ax->buffer.cursor.mode;
-    buffer_input(&ax->buffer, character, count);
+
+    enum vn_flow flow = vn_input_route(&g_vn_input, g_event_tap.vn_ignored,
+                                       g_event_tap.front_app_ignored,
+                                       ax->buffer.cursor.mode           );
+    if (flow == VN_FLOW_VIM_BUFFER) {
+      int64_t keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+      struct vn_engine_result result = (keycode == kVK_Delete)
+        ? vn_engine_process_backspace()
+        : vn_engine_process_key(character, flags & FLAG_SHIFT,
+                                flags & kCGEventFlagMaskAlphaShift);
+
+      if (result.backspace_count > 0 || result.insert_len > 0) {
+        char* text = NULL;
+        if (result.insert_len > 0) {
+          CFStringRef str = CFStringCreateWithBytes(NULL, result.insert_text,
+                                                    result.insert_len,
+                                                    kCFStringEncodingUTF8,
+                                                    false                );
+          text = cfstring_get_cstring(str);
+          CFRelease(str);
+        }
+        buffer_input_string(&ax->buffer, result.backspace_count, text);
+        if (text) free(text);
+        ax_set_buffer(ax);
+        return NULL;
+      }
+      // ponytail: vn_engine returns an empty result (no backspaces, nothing
+      // to insert) for most keys -- e.g. libunikey never reports output for
+      // the first consonant of a new word, or for control keys like escape
+      // -- since it mirrors Flow A's "OS delivers raw, engine corrects
+      // asynchronously" model. Flow B has no such OS-delivers-raw fallback:
+      // the vim buffer is the only source of truth, so an untouched key
+      // still has to go through buffer_input or it silently falls out of
+      // sync with the real app text.
+      buffer_input(&ax->buffer, character, count);
+    } else {
+      buffer_input(&ax->buffer, character, count);
+    }
 
     // Insert mode is passed and only synced later
     if (was_insert && ax->buffer.cursor.mode & INSERT) return event;

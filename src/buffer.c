@@ -221,6 +221,12 @@ void buffer_input(struct buffer* buffer, UniChar key, UniCharCount count) {
   buffer_sync(buffer);
 }
 
+void buffer_input_string(struct buffer* buffer, int backspace_count, const char* text) {
+  for (int i = 0; i < backspace_count; i++) vimKey(BACKSPACE_KEY);
+  if (text) vimInput((char_u*) text);
+  buffer_sync(buffer);
+}
+
 void buffer_revsync_text(struct buffer* buffer) {
   vimExecute(BUFFER_CLEAR);
   vimKey(NORMAL_MODE);

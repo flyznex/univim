@@ -8,6 +8,7 @@
 #define BUFFER_CLEAR "%d"
 #define NORMAL_MODE  "<esc>"
 #define INSERT_MODE  "i"
+#define BACKSPACE_KEY "<bs>"
 
 #define VISUAL_BLOCK 0x16
 #define VISUAL_LINE  0x56
@@ -38,10 +39,12 @@ struct buffer {
 
 void buffer_begin(struct buffer* buffer);
 void buffer_input(struct buffer* buffer, UniChar key, UniCharCount count);
+void buffer_input_string(struct buffer* buffer, int backspace_count, const char* text);
 void buffer_clear(struct buffer* buffer);
 void buffer_revsync_text(struct buffer* buffer);
 void buffer_revsync_cursor(struct buffer* buffer);
 void buffer_call_script(struct buffer* buffer, bool supported);
+void buffer_sync(struct buffer* buffer);
 
 struct line* line_create();
 void line_destroy(struct line* line);
