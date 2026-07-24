@@ -49,6 +49,8 @@ void workspace_begin(void **context) {
                                                               name,
                                                               bundle_id    );
     g_event_tap.vn_ignored = vn_input_blacklisted(&g_vn_input, name, bundle_id);
+    vn_input_lookup_override(&g_vn_input, name, bundle_id,
+                             &g_event_tap.delay_us, &g_event_tap.strategy);
     vn_debug_log("appSwitched: vn_engine_reset (app=%s)", name ? name : "?");
     vn_engine_reset();
     ax_front_app_changed(&g_ax, pid);

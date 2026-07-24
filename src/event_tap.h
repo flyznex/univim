@@ -19,6 +19,8 @@ struct event_tap {
   bool front_app_ignored;
   bool vn_ignored;
   pid_t front_pid;
+  int delay_us;
+  enum vn_correction_strategy strategy;
   uint32_t blacklist_count;
   char** blacklist;
   CFMachPortRef handle;

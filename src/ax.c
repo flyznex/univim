@@ -345,7 +345,11 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
         // NORMAL-mode motions/visual mode.
         vn_debug_log("flow_b correction: backspaces=%d insert_len=%d",
                     result.backspace_count, result.insert_len);
-        struct vn_post_target target = { .pid = g_event_tap.front_pid, .delay_us = 5000, .strategy = VN_STRATEGY_BACKSPACE };
+        struct vn_post_target target = {
+          .pid = g_event_tap.front_pid,
+          .delay_us = g_event_tap.delay_us,
+          .strategy = g_event_tap.strategy
+        };
         vn_post_correction(target, result.backspace_count, result.insert_text, result.insert_len);
         return NULL;
       }

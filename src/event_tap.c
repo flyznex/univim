@@ -138,7 +138,11 @@ CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventRef event) {
 
   if (result.backspace_count == 0 && result.insert_len == 0) return event;
 
-  struct vn_post_target target = { .pid = event_tap->front_pid, .delay_us = 5000, .strategy = VN_STRATEGY_BACKSPACE };
+  struct vn_post_target target = {
+    .pid = event_tap->front_pid,
+    .delay_us = event_tap->delay_us,
+    .strategy = event_tap->strategy
+  };
   vn_post_correction(target, result.backspace_count, result.insert_text, result.insert_len);
   return NULL;
 }
