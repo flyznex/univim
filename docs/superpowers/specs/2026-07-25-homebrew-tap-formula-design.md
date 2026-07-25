@@ -10,9 +10,14 @@ service — not just when opened manually.
 
 ## Non-goals
 
-- Not creating the tap repository itself (`homebrew-univim` on GitHub) —
-  the user creates and owns that; this only produces the `Formula/univim.rb`
-  file to drop into it.
+- Not creating the tap repository itself (`homebrew-taproom` on GitHub,
+  tapped as `flyznex/taproom`) — the user creates and owns that.
+- Not committing a `Formula/univim.rb` copy into *this* repo — Homebrew only
+  reads formulae from a repo actually named `homebrew-*`, so a copy sitting
+  in the `univim` project repo has no function and would just be a second
+  copy to keep in sync by hand. The Formula's only real home is the
+  `homebrew-taproom` tap repo; this spec documents its design, not a
+  committed artifact here.
 - Not adding a stable versioned install path yet (no git tag exists) —
   `head`-only for now. Adding the `url`/`sha256` stable block is a small,
   separate follow-up once a tag exists.
@@ -22,7 +27,8 @@ service — not just when opened manually.
 
 ## Components
 
-### `Formula/univim.rb` (new, in this repo)
+### `Formula/univim.rb` (lives in the separate `homebrew-taproom` tap repo
+only — not committed to this repo, see Non-goals)
 
 ```ruby
 class Univim < Formula
@@ -70,7 +76,7 @@ end
   in Activity Monitor/Force Quit when launched via `brew services start
   univim`, fulfilling the point of the earlier icon work.
 - `head`-only: no stable `url`/`sha256` block yet since no tag exists.
-  Install with `brew install --HEAD <tap>/univim` for now; `brew install
+  Install with `brew install --HEAD flyznex/taproom/univim` for now; `brew install
   univim` (no `--HEAD`) won't work until a stable block is added.
 
 ## Error handling / edge cases
@@ -91,7 +97,7 @@ end
 
 - Not logic-testable. Verify once the user has created the tap repo and
   copied `Formula/univim.rb` into it:
-  1. `brew install --HEAD <tap>/univim` completes (submodule fetch + `make
+  1. `brew install --HEAD flyznex/taproom/univim` completes (submodule fetch + `make
      lib` + `make app` all succeed from a clean clone).
   2. `brew services start univim` launches it, Activity Monitor shows the
      UniVim icon next to the running process.
