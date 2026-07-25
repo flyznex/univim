@@ -10,7 +10,11 @@ void vn_engine_init(vn_method method) {
 }
 
 void vn_engine_set_method(vn_method method) {
-  UnikeySetInputMethod(method == VN_METHOD_VNI ? UkVni : UkTelex);
+  // Uses libunikey's UkSimpleTelex rather than UkTelex for VN_METHOD_TELEX --
+  // a deliberate typing-feel preference, not a bugfix (confirmed identical
+  // output to UkTelex on every case tested, including the intermittent
+  // fast-typing corruption bug this was originally explored for).
+  UnikeySetInputMethod(method == VN_METHOD_VNI ? UkVni : UkSimpleTelex);
 }
 
 // libunikey reports UnikeyBackspaces as a count of UTF-8 *bytes* to remove
