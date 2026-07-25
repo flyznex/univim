@@ -116,6 +116,14 @@ CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventRef event) {
   CGEventFlags flags = CGEventGetFlags(event);
   int64_t keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
 
+  // Command+key combos (Cmd+A, Cmd+V, Cmd+Delete, etc.) break word context --
+  // reset the engine so the next word starts fresh. Without this, Cmd+A +
+  // Delete leaves stale word_history and corrupts the first word typed after.
+  if (flags & kCGEventFlagMaskCommand) {
+    vn_engine_reset();
+    return event;
+  }
+
   // Pure cursor-navigation keys carry no text for vn_engine to compose (same
   // reasoning as ax.c's identical check) -- without this, the autorepeat
   // guard below treats a held arrow key as a held letter and drops every
