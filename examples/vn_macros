@@ -1,0 +1,12 @@
+# ~/.config/univim/vn_macros
+# format: key:text  (one shortcut per line, plain UTF-8, no header needed --
+# univim generates the internal libunikey header for you)
+#
+# Uncomment and edit, then restart univim to pick up changes:
+#
+# sdt:số điện thoại
+# vn:Việt Nam
+#
+# Typing the key followed by a word-break key (space, punctuation, ...)
+# expands it in place. A key only matches as a whole word -- typing it as
+# part of a longer word (e.g. "xsdt") does not trigger expansion.

@@ -43,6 +43,17 @@ debug=1             # logs routing/correction decisions to ~/.config/univim/vn_d
 `~/.config/univim/vn_blacklist` excludes apps from Vietnamese input entirely
 (same one-app-or-bundle-id-per-line format as `blacklist` above).
 
+### Text-shortcut expansion ("gõ tắt")
+Define typing shortcuts that expand automatically, e.g. `sdt` → `số điện thoại`,
+in `~/.config/univim/vn_macros` (see `examples/vn_macros`):
+```
+sdt:số điện thoại
+vn:Việt Nam
+```
+One `key:text` shortcut per line, plain UTF-8. Active automatically whenever
+this file exists. A shortcut expands when followed by a word-break key
+(space, punctuation, ...); it only matches as a whole word.
+
 ### Per-app correction tuning
 Some apps need a different delay or correction strategy than the defaults
 (5ms, backspace-based deletion). Configure this per app in

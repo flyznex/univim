@@ -1,12 +1,55 @@
 #include "vn_engine.h"
 #include "libunikey/unikey.h"
 #include "libunikey/vnconv.h"
+#include <stdio.h>
 #include <string.h>
 
 void vn_engine_init(vn_method method) {
   UnikeySetup();
   UnikeySetOutputCharset(CONV_CHARSET_UNIUTF8);
   vn_engine_set_method(method);
+}
+
+bool vn_engine_load_macros(const char* path) {
+  FILE* src = fopen(path, "r");
+  if (!src) return true; // no vn_macros file -- macros stay disabled (default), not an error
+
+  // Build the sibling ".vn_macros_compiled" path from vn_macros's directory.
+  char compiled_path[512];
+  char* last_slash = strrchr(path, '/');
+  if (last_slash) {
+    int dir_len = (int) (last_slash - path);
+    snprintf(compiled_path, sizeof(compiled_path), "%.*s/.vn_macros_compiled", dir_len, path);
+  } else {
+    snprintf(compiled_path, sizeof(compiled_path), ".vn_macros_compiled");
+  }
+
+  FILE* compiled = fopen(compiled_path, "w");
+  if (!compiled) { fclose(src); return false; }
+
+  // libunikey's macro loader reads the first line as a version header; the
+  // user-facing vn_macros file intentionally omits it (users just write
+  // "key:text" lines) so it's regenerated here on every load. Without this
+  // exact header, the loader falls back to interpreting macro text as
+  // VIQR-encoded ASCII instead of UTF-8, silently mangling every accented
+  // macro expansion (confirmed empirically: "số điện thoại" -> garbage
+  // mojibake without it, correct with it).
+  fprintf(compiled, "DO NOT DELETE THIS LINE*** version=1 ***\n");
+
+  char line[1040]; // MAX_MACRO_LINE from libunikey/keycons.h
+  while (fgets(line, sizeof(line), src)) fputs(line, compiled);
+  fclose(src);
+  fclose(compiled);
+
+  // Left on disk (not a temp file, not deleted) so a failed load can be
+  // inspected afterward instead of vanishing along with the evidence.
+  if (!UnikeyLoadMacroTable(compiled_path)) return false;
+
+  UnikeyOptions opt;
+  UnikeyGetOptions(&opt);
+  opt.macroEnabled = 1;
+  UnikeySetOptions(&opt);
+  return true;
 }
 
 void vn_engine_set_method(vn_method method) {

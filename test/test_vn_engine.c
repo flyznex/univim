@@ -60,6 +60,22 @@ int main(void) {
   // consonant must not eat the leading consonant (byte-vs-char backspace bug)
   check("telex tone past trailing consonant", VN_METHOD_TELEX, "thaays", "th\xe1\xba\xa5y"); // "thấy"
 
+  // Macro shortcut expansion (vn_engine_load_macros): user-facing vn_macros
+  // files are plain "key:text" lines with no header -- vn_engine_load_macros
+  // must add libunikey's required UTF-8 version header itself, or accented
+  // macro text silently mangles (see vn_engine.c's comment).
+  {
+    const char* fixture_path = "/tmp/test_vn_macros_fixture";
+    FILE* f = fopen(fixture_path, "w");
+    assert(f);
+    fputs("sdt:s\xe1\xbb\x91 \xc4\x91i\xe1\xbb\x87n tho\xe1\xba\xa1i\n", f); // "số điện thoại"
+    fclose(f);
+
+    vn_engine_load_macros(fixture_path);
+    check("macro shortcut expansion", VN_METHOD_TELEX, "sdt ",
+          "s\xe1\xbb\x91 \xc4\x91i\xe1\xbb\x87n tho\xe1\xba\xa1i "); // "số điện thoại "
+  }
+
   printf("ALL TESTS PASSED\n");
   return 0;
 }

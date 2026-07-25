@@ -185,6 +185,12 @@ void vn_input_begin(struct vn_input* vn) {
   vn->overrides_count = overrides.count;
 
   vn_engine_init(vn->method);
+
+  char macros_path[512];
+  snprintf(macros_path, sizeof(macros_path), "%s/.config/univim/vn_macros", home);
+  if (!vn_engine_load_macros(macros_path))
+    vn_debug_log("vn_input_begin: vn_engine_load_macros failed, path=%s", macros_path);
+
   statusbar_init();
 }
 
