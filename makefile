@@ -15,9 +15,43 @@ SRC = src
 _OBJ = helpers.om helpers.o workspace.om event_tap.o ax.o buffer.o line.o env_vars.o vn_engine.o vn_input.o toast.om
 OBJ = $(patsubst %, $(ODIR)/%, $(_OBJ))
 
-.PHONY: all x86 arm64 universal sign lib clean
+.PHONY: all x86 arm64 universal sign lib clean app
 
 all: $(ODIR)/univim
+
+# Minimal .app bundle so univim has an icon in Activity Monitor/Force Quit.
+# LSUIElement=true keeps it out of the Dock/app switcher -- same background
+# daemon behavior as running the bare binary, just no longer icon-less.
+# Doesn't touch/replace the `bundle` target above (that one is an unrelated
+# distribution tarball of the raw binary).
+app: $(ODIR)/univim
+	rm -rf $(ODIR)/UniVim.app
+	mkdir -p $(ODIR)/UniVim.app/Contents/MacOS
+	mkdir -p $(ODIR)/UniVim.app/Contents/Resources
+	cp $(ODIR)/univim $(ODIR)/UniVim.app/Contents/MacOS/univim
+	cp icons/uv.icns $(ODIR)/UniVim.app/Contents/Resources/uv.icns
+	@printf '%s\n' \
+		'<?xml version="1.0" encoding="UTF-8"?>' \
+		'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+		'<plist version="1.0">' \
+		'<dict>' \
+		'	<key>CFBundleExecutable</key>' \
+		'	<string>univim</string>' \
+		'	<key>CFBundleIconFile</key>' \
+		'	<string>uv</string>' \
+		'	<key>CFBundleIdentifier</key>' \
+		'	<string>org.univim.univim</string>' \
+		'	<key>CFBundleName</key>' \
+		'	<string>UniVim</string>' \
+		'	<key>CFBundlePackageType</key>' \
+		'	<string>APPL</string>' \
+		'	<key>CFBundleShortVersionString</key>' \
+		'	<string>$(VERSION)</string>' \
+		'	<key>LSUIElement</key>' \
+		'	<true/>' \
+		'</dict>' \
+		'</plist>' \
+		> $(ODIR)/UniVim.app/Contents/Info.plist
 
 x86: CFLAGS = $(WARN_FLAGS) $(DEFINES) -g -Ilib -Ilib/libvim/proto -std=c99 -O2 -target x86_64-apple-macos12.0
 x86: $(ODIR)/univim
