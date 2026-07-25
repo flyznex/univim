@@ -15,7 +15,7 @@ SRC = src
 _OBJ = helpers.om helpers.o workspace.om event_tap.o ax.o buffer.o line.o env_vars.o vn_engine.o vn_input.o toast.om
 OBJ = $(patsubst %, $(ODIR)/%, $(_OBJ))
 
-.PHONY: all x86 arm64 universal sign lib clean app
+.PHONY: all x86 arm64 universal sign lib clean app sign-app
 
 all: $(ODIR)/univim
 
@@ -52,13 +52,19 @@ app: $(ODIR)/univim
 		'</dict>' \
 		'</plist>' \
 		> $(ODIR)/UniVim.app/Contents/Info.plist
-	# Signs with a local, per-machine self-signed identity (auto-created if
-	# missing) instead of the linker's default ad-hoc signature -- an
-	# ad-hoc signature hashes the binary's own bytes, so it changes on
-	# every rebuild and macOS treats each one as a "different app",
-	# requiring Accessibility permission to be re-granted every time. A
-	# stable identity here means it only needs to be granted once per
-	# machine, surviving rebuilds/reinstalls.
+
+# Separate from `app` deliberately: Homebrew's sandboxed build environment
+# blocks writing to the real login keychain entirely ("UNIX[Operation not
+# permitted]"), so this can't run as part of `install` in the Formula --
+# it has to happen after, outside the sandbox (see the Formula's
+# post_install). Signs with a local, per-machine self-signed identity
+# (auto-created if missing) instead of the linker's default ad-hoc
+# signature -- an ad-hoc signature hashes the binary's own bytes, so it
+# changes on every rebuild and macOS treats each one as a "different app",
+# requiring Accessibility permission to be re-granted every time. A stable
+# identity here means it only needs to be granted once per machine,
+# surviving rebuilds/reinstalls.
+sign-app:
 	scripts/ensure_codesign_cert.sh univim-cert
 	codesign --force --sign univim-cert $(ODIR)/UniVim.app
 
