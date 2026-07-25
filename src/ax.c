@@ -263,9 +263,12 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
       || keycode == kVK_PageUp || keycode == kVK_PageDown)
     return event;
 
-  // Command
-  if (flags & FLAG_COMMAND)
+  // Command+key combos break word context -- reset the VN engine so the next
+  // word starts fresh (e.g. Cmd+A + Delete would otherwise leave stale state).
+  if (flags & FLAG_COMMAND) {
+    vn_engine_reset();
     return event;
+  }
   
   // Shift Enter
   if (character == ENTER && (flags & FLAG_SHIFT))
