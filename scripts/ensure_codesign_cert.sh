@@ -39,16 +39,24 @@ EOF
 openssl req -x509 -newkey rsa:2048 -keyout "$TMPDIR/key.pem" -out "$TMPDIR/cert.pem" \
   -days 3650 -nodes -config "$TMPDIR/cert.conf" -sha256
 
-# -legacy: OpenSSL 3.x defaults PKCS12 to AES/PBES2 encryption, which
-# macOS's Security framework can't parse ("MAC verification failed" on
-# import) -- the legacy RC2/3DES format is what `security import` actually
-# understands. An empty -passout also triggers the same MAC-verification
-# failure independently of the encryption format (confirmed by testing each
+# OpenSSL 3.x defaults PKCS12 to AES/PBES2 encryption, which macOS's
+# Security framework can't parse ("MAC verification failed" on import) --
+# needs the legacy RC2/3DES format `security import` understands, via
+# OpenSSL 3.x's own -legacy flag. LibreSSL/OpenSSL 1.x (what Homebrew's
+# sandboxed build uses, via /usr/bin/openssl) predates the provider system
+# -legacy selects and doesn't have the flag at all, but already emits a
+# compatible format by default -- so only pass -legacy when supported.
+# An empty -passout also triggers the same MAC-verification failure
+# independently of the encryption format (confirmed by testing each
 # combination directly), so a fixed placeholder password is used instead --
 # it's not a real secret, just a required non-empty PKCS12 transport value
 # for this local, non-interactive import.
 PKCS12_PASSWORD="univim-local-cert"
-openssl pkcs12 -export -legacy -out "$TMPDIR/cert.p12" \
+LEGACY_FLAG=""
+if openssl pkcs12 -help 2>&1 | grep -q -- -legacy; then
+  LEGACY_FLAG="-legacy"
+fi
+openssl pkcs12 -export $LEGACY_FLAG -out "$TMPDIR/cert.p12" \
   -inkey "$TMPDIR/key.pem" -in "$TMPDIR/cert.pem" -passout "pass:$PKCS12_PASSWORD"
 
 # -T /usr/bin/codesign lets codesign use the private key without a
