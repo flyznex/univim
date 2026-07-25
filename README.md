@@ -1,5 +1,7 @@
 # UniVim
 
+<img src="icons/icon_128x128.png" width="128" height="128" alt="UniVim icon">
+
 UniVim is a fork of [FelixKratz/SketchyVim](https://github.com/FelixKratz/SketchyVim),
 extended with a system-wide Vietnamese Telex/VNI input method on top of the
 original vim-mode feature.
