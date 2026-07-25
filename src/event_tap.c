@@ -11,17 +11,18 @@ bool event_tap_check_blacklist(struct event_tap* event_tap,
   return blacklist_contains(event_tap->blacklist, event_tap->blacklist_count, app, bundle_id);
 }
 
-// Posting to the frontmost app's pid directly (rather than broadcasting via
-// kCGAnnotatedSessionEventTap) delivers straight into that process's own
-// event queue alongside its real keystrokes, instead of re-entering the
-// whole session-wide HID pipeline from scratch -- which is what let a real
-// keystroke typed right after a correction win the race and land out of
-// order (reproduced in Ghostty and Chrome alike, since both go through this
-// same fallback). Falls back to the session-wide post if we don't have a
-// pid yet (e.g. before the first app-switch notification arrives).
-static void vn_post_event(pid_t target_pid, CGEventRef event) {
-  if (target_pid > 0) CGEventPostToPid(target_pid, event);
-  else CGEventPost(kCGAnnotatedSessionEventTap, event);
+// CGEventTapPostEvent re-injects an event at the exact point in the stream
+// where this tap intercepted the original keystroke -- unlike
+// CGEventPostToPid/CGEventPost, which inject through a *separate* path with
+// no ordering guarantee relative to a real keystroke typed right after a
+// correction (that race was reproduced repeatedly under fast typing even
+// with per-pid posting, per the investigation in the VN corruption project
+// memory). Posting through the tap's own proxy guarantees this correction is
+// ordered ahead of whatever the OS delivers next, matching Gõ Nhanh's
+// `.syncProxy` strategy. Re-entrant synthetic events coming back through
+// key_handler are already short-circuited by the VN_SYNTH_TAG check there.
+static void vn_post_event(CGEventTapProxy proxy, CGEventRef event) {
+  CGEventTapPostEvent(proxy, event);
 }
 
 void vn_post_correction(struct vn_post_target target, int backspace_count, const unsigned char* insert_text, int insert_len) {
@@ -47,8 +48,8 @@ void vn_post_correction(struct vn_post_target target, int backspace_count, const
     }
     CGEventSetIntegerValueField(down, kCGEventSourceUserData, VN_SYNTH_TAG);
     CGEventSetIntegerValueField(up, kCGEventSourceUserData, VN_SYNTH_TAG);
-    vn_post_event(target.pid, down);
-    vn_post_event(target.pid, up);
+    vn_post_event(target.proxy, down);
+    vn_post_event(target.proxy, up);
     CFRelease(down);
     CFRelease(up);
     vn_debug_log("vn_post_correction: posted %s %d/%d",
@@ -68,8 +69,8 @@ void vn_post_correction(struct vn_post_target target, int backspace_count, const
       CGEventKeyboardSetUnicodeString(down, length, chars);
       CGEventSetIntegerValueField(down, kCGEventSourceUserData, VN_SYNTH_TAG);
       CGEventSetIntegerValueField(up, kCGEventSourceUserData, VN_SYNTH_TAG);
-      vn_post_event(target.pid, down);
-      vn_post_event(target.pid, up);
+      vn_post_event(target.proxy, down);
+      vn_post_event(target.proxy, up);
       CFRelease(down);
       CFRelease(up);
       CFRelease(str);
@@ -117,7 +118,7 @@ void vn_post_correction(struct vn_post_target target, int backspace_count, const
 #define VN_STALE_THRESHOLD_NS (2ULL * NSEC_PER_SEC)
 static uint64_t last_activity_ns = 0;
 
-CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventRef event) {
+CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventTapProxy proxy, CGEventRef event) {
   uint64_t now_ns = CGEventGetTimestamp(event);
   if (last_activity_ns != 0 && now_ns > last_activity_ns
       && now_ns - last_activity_ns > VN_STALE_THRESHOLD_NS) {
@@ -199,6 +200,7 @@ CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventRef event) {
 
   struct vn_post_target target = {
     .pid = event_tap->front_pid,
+    .proxy = proxy,
     .delay_us = event_tap->delay_us,
     .strategy = event_tap->strategy
   };
@@ -240,10 +242,10 @@ static CGEventRef key_handler(CGEventTapProxy proxy, CGEventType type,
         if (g_ax.selected_element && g_ax.role) {
           ax_clear(&g_ax);
         }
-        return vn_synthetic_process(event_tap, event);
+        return vn_synthetic_process(event_tap, proxy, event);
       }
 
-      return ax_process_event(&g_ax, event);
+      return ax_process_event(&g_ax, proxy, event);
     } break;
   }
   return event;

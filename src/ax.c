@@ -219,7 +219,7 @@ void ax_front_app_changed(struct ax* ax, pid_t pid) {
 #endif
 }
 
-CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
+CGEventRef ax_process_event(struct ax* ax, CGEventTapProxy proxy, CGEventRef event) {
   if (!ax_process_selected_element(ax)) {
     vn_debug_log("ax_process_selected_element failed: role=%u is_supported=%d",
                 ax->role, ax->is_supported);
@@ -227,7 +227,7 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
     // areas without -DMANUAL_AX) -- vim-mode has nothing to work with here,
     // but VN doesn't need AX in the first place, so fall back to the same
     // AX-independent synthetic-keystroke delivery Flow A already uses.
-    return vn_synthetic_process(&g_event_tap, event);
+    return vn_synthetic_process(&g_event_tap, proxy, event);
   }
 
   // A previous Enter was passed through while staying in INSERT mode (see
@@ -350,6 +350,7 @@ CGEventRef ax_process_event(struct ax* ax, CGEventRef event) {
                     result.backspace_count, result.insert_len);
         struct vn_post_target target = {
           .pid = g_event_tap.front_pid,
+          .proxy = proxy,
           .delay_us = g_event_tap.delay_us,
           .strategy = g_event_tap.strategy
         };

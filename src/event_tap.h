@@ -11,6 +11,7 @@ extern char* string_copy(char* s);
 
 struct vn_post_target {
   pid_t pid;
+  CGEventTapProxy proxy;
   int delay_us;
   enum vn_correction_strategy strategy;
 };
@@ -34,4 +35,4 @@ bool event_tap_begin(struct event_tap *event_tap);
 void event_tap_end(struct event_tap *event_tap);
 bool event_tap_check_blacklist(struct event_tap* event_tap, char* app, char* bundle_id);
 void vn_post_correction(struct vn_post_target target, int backspace_count, const unsigned char* insert_text, int insert_len);
-CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventRef event);
+CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventTapProxy proxy, CGEventRef event);

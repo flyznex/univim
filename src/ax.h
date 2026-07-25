@@ -40,5 +40,5 @@ struct ax g_ax;
 void ax_begin(struct ax* ax);
 void ax_clear(struct ax* ax);
 
-CGEventRef ax_process_event(struct ax* ax, CGEventRef event);
+CGEventRef ax_process_event(struct ax* ax, CGEventTapProxy proxy, CGEventRef event);
 void ax_front_app_changed(struct ax* ax, pid_t pid);
