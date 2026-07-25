@@ -53,11 +53,16 @@ bool vn_engine_load_macros(const char* path) {
 }
 
 void vn_engine_set_method(vn_method method) {
-  // Uses libunikey's UkSimpleTelex rather than UkTelex for VN_METHOD_TELEX --
-  // a deliberate typing-feel preference, not a bugfix (confirmed identical
-  // output to UkTelex on every case tested, including the intermittent
-  // fast-typing corruption bug this was originally explored for).
-  UnikeySetInputMethod(method == VN_METHOD_VNI ? UkVni : UkSimpleTelex);
+  // UkSimpleTelex vs UkTelex is a typing-feel preference, not a bugfix
+  // (confirmed identical output to UkTelex on every case tested, including
+  // the intermittent fast-typing corruption bug this was originally
+  // explored for) -- exposed via vn_config's `method=` so it's a user
+  // choice instead of hardcoded.
+  switch (method) {
+    case VN_METHOD_VNI: UnikeySetInputMethod(UkVni); break;
+    case VN_METHOD_TELEX: UnikeySetInputMethod(UkTelex); break;
+    case VN_METHOD_SIMPLETELEX: default: UnikeySetInputMethod(UkSimpleTelex); break;
+  }
 }
 
 // libunikey reports UnikeyBackspaces as a count of UTF-8 *bytes* to remove

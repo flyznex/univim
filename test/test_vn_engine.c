@@ -59,6 +59,10 @@ int main(void) {
   // regression: tone mark reaching back past a leading consonant + trailing
   // consonant must not eat the leading consonant (byte-vs-char backspace bug)
   check("telex tone past trailing consonant", VN_METHOD_TELEX, "thaays", "th\xe1\xba\xa5y"); // "thấy"
+  // config-exposed default method (vn_config's `method=simpletelex`, or no
+  // method= line at all) -- must actually route to UkSimpleTelex, not
+  // silently fall back to UkTelex/VNI.
+  check("simpletelex default method", VN_METHOD_SIMPLETELEX, "thaays", "th\xe1\xba\xa5y"); // "thấy"
 
   // Macro shortcut expansion (vn_engine_load_macros): user-facing vn_macros
   // files are plain "key:text" lines with no header -- vn_engine_load_macros

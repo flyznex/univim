@@ -39,10 +39,13 @@ independent of the vim-mode feature above.
 Toggle it on/off with a hotkey (default `control+shift`). Configure it via
 `~/.config/univim/vn_config` (plain `key=value` lines):
 ```
-method=telex        # telex (default) or vni
+method=simpletelex  # telex, simpletelex (default), or vni
 hotkey=control+shift
 debug=1             # logs routing/correction decisions to ~/.config/univim/vn_debug.log
 ```
+`simpletelex` is libunikey's `UkSimpleTelex` input method -- a typing-feel
+preference, not a different rule set (confirmed identical composition
+output to `telex` on every case tested).
 
 `~/.config/univim/vn_blacklist` excludes apps from Vietnamese input entirely
 (same one-app-or-bundle-id-per-line format as `blacklist` above).

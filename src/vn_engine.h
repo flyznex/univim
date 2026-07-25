@@ -1,7 +1,7 @@
 #pragma once
 #include <stdbool.h>
 
-typedef enum { VN_METHOD_TELEX, VN_METHOD_VNI } vn_method;
+typedef enum { VN_METHOD_TELEX, VN_METHOD_SIMPLETELEX, VN_METHOD_VNI } vn_method;
 
 struct vn_engine_result {
   int backspace_count;

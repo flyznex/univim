@@ -83,7 +83,7 @@ static CGEventFlags parse_hotkey(const char* str) {
 }
 
 static void vn_config_load(struct vn_input* vn) {
-  vn->method = VN_METHOD_TELEX;
+  vn->method = VN_METHOD_SIMPLETELEX;
   vn->hotkey_mask = kCGEventFlagMaskControl | kCGEventFlagMaskShift;
   vn->debug = false;
 
@@ -103,7 +103,9 @@ static void vn_config_load(struct vn_input* vn) {
     char* key = line;
     char* value = eq + 1;
     if (strcmp(key, "method") == 0) {
-      vn->method = (strcmp(value, "vni") == 0) ? VN_METHOD_VNI : VN_METHOD_TELEX;
+      if (strcmp(value, "vni") == 0) vn->method = VN_METHOD_VNI;
+      else if (strcmp(value, "telex") == 0) vn->method = VN_METHOD_TELEX;
+      else vn->method = VN_METHOD_SIMPLETELEX; // "simpletelex" or unrecognized
     } else if (strcmp(key, "hotkey") == 0) {
       vn->hotkey_mask = parse_hotkey(value);
     } else if (strcmp(key, "debug") == 0) {
