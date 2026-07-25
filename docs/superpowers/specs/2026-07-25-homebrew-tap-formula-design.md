@@ -26,7 +26,7 @@ service — not just when opened manually.
 
 ```ruby
 class Univim < Formula
-  desc "Vim-mode for any accessible macOS text field, plus system-wide Vietnamese Telex/VNI input"
+  desc "Vim-mode for macOS text fields, plus Vietnamese Telex/VNI input"
   homepage "https://github.com/flyznex/univim"
   head "https://github.com/flyznex/univim.git", branch: "master"
   depends_on :macos
@@ -47,10 +47,12 @@ class Univim < Formula
   end
 
   test do
-    assert_predicate libexec/"UniVim.app/Contents/MacOS/univim", :exist?
+    assert_path_exists libexec/"UniVim.app/Contents/MacOS/univim"
   end
 end
 ```
+(`brew style` clean -- `desc` shortened to fit the 80-char limit,
+`assert_path_exists` used per `FormulaAudit/AssertStatements`.)
 
 - `git submodule update --init --recursive`: `libvim` is a submodule built
   from source (`make lib` compiles it into `lib/libvim.a`); `libunikey.a`
