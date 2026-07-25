@@ -1,7 +1,12 @@
-# SketchyVim
+# UniVim
+
+UniVim is a fork of [FelixKratz/SketchyVim](https://github.com/FelixKratz/SketchyVim),
+extended with a system-wide Vietnamese Telex/VNI input method on top of the
+original vim-mode feature.
+
 This small project turns accessible(!) input fields on macOS into full vim
 buffers. It should behave and feel like native vim, because, under the hood
-I synchronize the text field with a real vim buffer.
+the text field is synchronized with a real vim buffer.
 
 ![demo](https://user-images.githubusercontent.com/22680421/153753171-e818d40b-4d72-4b88-9719-d1e36d16dec0.gif)
 
@@ -10,38 +15,38 @@ You can use all modes (even commandline etc.) and all commands included in vim.
 It is also possible to load a custom `svimrc` file, which can contain
 custom vim configurations, e.g. remappings (see the examples folder).
 
-Additionally, you can edit the `blacklist` file in the `~/.config/svim/` folder
-to manually exclude applications from being handled by svim.
+Additionally, you can edit the `blacklist` file in the `~/.config/univim/` folder
+to manually exclude applications from being handled by UniVim.
 You will likely want to blacklist your terminal emulator and gvim, such that there
 is no conflict.
 
 Every time the vim mode changes, or a commandline update is issued, the script
-`svim.sh` in the folder `~/.config/svim/` is executed where you can handle 
-how you want to process this information. I have a small popup in my [SketchyBar](https://github.com/FelixKratz/SketchyBar)
-which shows me the command line output on demand for example.
+`svim.sh` in the folder `~/.config/univim/` is executed where the output can be
+handled however you like -- e.g. piping the command line output into a
+[SketchyBar](https://github.com/FelixKratz/SketchyBar) popup on demand.
 
 (!): Accessible means, that the input field needs to conform to the accessibility
-     standards for text input fields, else there is nothing we can do.
+     standards for text input fields, else there is nothing UniVim can do.
 
 ## Vietnamese Input (Telex/VNI)
-svim also includes a system-wide Vietnamese input method (Telex and VNI),
+UniVim also includes a system-wide Vietnamese input method (Telex and VNI),
 independent of the vim-mode feature above.
 
 Toggle it on/off with a hotkey (default `control+shift`). Configure it via
-`~/.config/svim/vn_config` (plain `key=value` lines):
+`~/.config/univim/vn_config` (plain `key=value` lines):
 ```
 method=telex        # telex (default) or vni
 hotkey=control+shift
-debug=1             # logs routing/correction decisions to ~/.config/svim/vn_debug.log
+debug=1             # logs routing/correction decisions to ~/.config/univim/vn_debug.log
 ```
 
-`~/.config/svim/vn_blacklist` excludes apps from Vietnamese input entirely
+`~/.config/univim/vn_blacklist` excludes apps from Vietnamese input entirely
 (same one-app-or-bundle-id-per-line format as `blacklist` above).
 
 ### Per-app correction tuning
 Some apps need a different delay or correction strategy than the defaults
 (5ms, backspace-based deletion). Configure this per app in
-`~/.config/svim/vn_overrides` (see `examples/vn_overrides`):
+`~/.config/univim/vn_overrides` (see `examples/vn_overrides`):
 ```
 # AppName delay_ms strategy
 Ghostty 15 backspace
@@ -56,27 +61,27 @@ Visual Studio Code 0 select
   `backspace` for terminals.
 * `delay_ms` is ignored when `strategy` is `select`.
 * Apps not listed use the defaults. Like the other config files above,
-  changes require a restart (`brew services restart svim`) to take effect.
+  changes require a restart of UniVim to take effect.
 
 ## Installation
-You can install this using brew from my tap:
+No packaged distribution yet -- build from source:
 ```bash
-brew tap FelixKratz/formulae
-brew install svim
+git clone https://github.com/flyznex/SketchyVim.git univim
+cd univim
+git submodule update --init --recursive
+make
 ```
-and then you can start the brew service using:
-```
-brew services start svim
-```
-where you will be asked to grant accessibility permissions.
+This produces `bin/univim`. Run it directly, or set up your own launchd
+job/login item to keep it running in the background; the first run will
+ask you to grant accessibility permissions.
 
-You can change the macOS selection color to anything you like with this command (which is my green):
+You can change the macOS selection color to anything you like with this command:
 ```bash
 defaults write NSGlobalDomain AppleHighlightColor -string "0.615686 0.823529 0.454902"
 ```
 
 ## Issues
-Please tell me if you encounter issues.
+Please open an issue if you encounter problems.
 
 Known Issues:
 -------------
@@ -90,9 +95,18 @@ Known Issues:
 
 ## Contributions
 Pull requests are welcome. If you improve the code for your own use, consider creating
-a pull request, such that all people (including me) can enjoy those improvements.
+a pull request, such that everyone can enjoy those improvements.
 
 ## Credits
-* I use the libvim library which is a compact and minimal c library for the vim core.
+* [Felix Kratz](https://github.com/FelixKratz), original author of
+  [SketchyVim](https://github.com/FelixKratz/SketchyVim), the project this
+  fork is based on.
+* The [libvim](https://github.com/FelixKratz/libvim) library, a compact and
+  minimal c library for the vim core.
+* Phạm Kim Long, original author of
+  [Unikey](https://www.unikey.org/), the Vietnamese input engine this fork's
+  Telex/VNI support is built on.
+* [inteplus/libunikey](https://github.com/inteplus/libunikey), the vendored
+  library source this fork's Vietnamese input method uses.
 * Many prior projects tried to accomplish a similar vision by rebuilding the vim
-  movements by hand, those have inspired me to create this project.
+  movements by hand, those have inspired the creation of this project.

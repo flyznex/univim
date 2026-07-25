@@ -8,7 +8,7 @@
 void buffer_loadrc(struct buffer* buffer) {
   char* home = getenv("HOME");
   char buf[512];
-  snprintf(buf, sizeof(buf), "%s/%s", home, ".config/svim/svimrc");
+  snprintf(buf, sizeof(buf), "%s/%s", home, ".config/univim/svimrc");
 
   char_u* file = (char_u*) read_file(buf);
   if (file) {
@@ -192,7 +192,7 @@ void buffer_call_script(struct buffer* buffer, bool supported) {
 
   char* home = getenv("HOME");
   char buf[512];
-  snprintf(buf, sizeof(buf), "%s/%s", home, ".config/svim/svim.sh");
+  snprintf(buf, sizeof(buf), "%s/%s", home, ".config/univim/svim.sh");
   vfork_exec(buf, &env_vars);
   env_vars_destroy(&env_vars);
 }

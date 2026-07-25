@@ -17,33 +17,33 @@ OBJ = $(patsubst %, $(ODIR)/%, $(_OBJ))
 
 .PHONY: all x86 arm64 universal sign lib clean
 
-all: $(ODIR)/svim
+all: $(ODIR)/univim
 
 x86: CFLAGS = $(WARN_FLAGS) $(DEFINES) -g -Ilib -Ilib/libvim/proto -std=c99 -O2 -target x86_64-apple-macos12.0
-x86: $(ODIR)/svim
-	mv $(ODIR)/svim $(ODIR)/svim_x86
+x86: $(ODIR)/univim
+	mv $(ODIR)/univim $(ODIR)/univim_x86
 	rm -rf $(ODIR)/*.o
 	rm -rf $(ODIR)/*.om
 
 arm64: CFLAGS = $(WARN_FLAGS) $(DEFINES) -g -Ilib -Ilib/libvim/proto -std=c99 -O2 -target arm64-apple-macos12.0
-arm64: $(ODIR)/svim
-	mv $(ODIR)/svim $(ODIR)/svim_arm64
+arm64: $(ODIR)/univim
+	mv $(ODIR)/univim $(ODIR)/univim_arm64
 	rm -rf $(ODIR)/*.o
 	rm -rf $(ODIR)/*.om
 
 universal:
 	$(MAKE) x86
 	$(MAKE) arm64
-	lipo -create -output $(ODIR)/svim $(ODIR)/svim_x86 $(ODIR)/svim_arm64
+	lipo -create -output $(ODIR)/univim $(ODIR)/univim_x86 $(ODIR)/univim_arm64
 
 sign:
 	$(MAKE) universal
-	codesign -fs 'svim-cert' $(ODIR)/svim
+	codesign -fs 'univim-cert' $(ODIR)/univim
 
 bundle: clean
 	$(MAKE) sign
 	@mkdir bundle
-	cp $(ODIR)/svim bundle/
+	cp $(ODIR)/univim bundle/
 	cp -r examples/ bundle/
 	tar -czf bundle_$(VERSION).tgz bundle/
 	rm -rf bundle/
@@ -52,7 +52,7 @@ lib:
 	cd libvim/src/ && make
 	cp libvim/src/libvim.a lib/libvim.a
 
-bin/svim: $(SRC)/main.m $(OBJ) | $(ODIR)
+bin/univim: $(SRC)/main.m $(OBJ) | $(ODIR)
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
 $(ODIR)/%.o: $(SRC)/%.c $(SRC)/%.h | $(ODIR)

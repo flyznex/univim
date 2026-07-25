@@ -1,4 +1,4 @@
-# ~/.config/svim/vn_overrides
+# ~/.config/univim/vn_overrides
 # format: AppName delay_ms strategy
 # strategy: backspace | select  (delay_ms ignored when strategy=select)
 #

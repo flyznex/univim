@@ -41,7 +41,7 @@ enum vn_flow vn_input_route(struct vn_input* vn, bool is_vn_blacklisted,
                             bool front_app_ignored, uint32_t cursor_mode);
 void vn_input_toggle(struct vn_input* vn);
 
-// Appends a formatted line to ~/.config/svim/vn_debug.log, only when
+// Appends a formatted line to ~/.config/univim/vn_debug.log, only when
 // `debug=1` is set in vn_config -- a no-op otherwise. Enable it to trace
 // routing decisions and engine results without recompiling.
 void vn_debug_log(const char* fmt, ...);

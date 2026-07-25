@@ -32,11 +32,12 @@ to the projects this fork builds on.
 
 ### Local migration (this machine only, not part of the repo)
 - Copy `~/.config/svim/` → `~/.config/univim/` so the current vn_config,
-  vn_overrides, and blacklist keep working under the new path.
-- Stop the existing `homebrew.mxcl.svim` brew service (it points at the old
-  Cellar binary/label) and run the newly built `univim` binary via its own
-  mechanism (a manual launchd plist, since no brew formula exists for it
-  yet) instead of continuing to overwrite the `svim`-labeled Cellar binary.
+  vn_overrides, and blacklist keep working under the new path. Done.
+- Deferred: swapping the live running service (`homebrew.mxcl.svim`) for the
+  renamed `univim` binary. Depends on a not-yet-made decision (own brew tap
+  vs. a manual launchd plist) — a manual plist created now could conflict
+  with what a future brew formula would set up. The old `svim` service
+  keeps running as-is until that decision is made.
 
 ### README
 - Title: `UniVim`.

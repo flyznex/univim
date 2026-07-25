@@ -45,7 +45,7 @@ void vn_debug_log(const char* fmt, ...) {
 
   char* home = getenv("HOME");
   char path[512];
-  snprintf(path, sizeof(path), "%s/.config/svim/vn_debug.log", home);
+  snprintf(path, sizeof(path), "%s/.config/univim/vn_debug.log", home);
   FILE* file = fopen(path, "a");
   if (!file) return;
 
@@ -89,7 +89,7 @@ static void vn_config_load(struct vn_input* vn) {
 
   char* home = getenv("HOME");
   char path[512];
-  snprintf(path, sizeof(path), "%s/.config/svim/vn_config", home);
+  snprintf(path, sizeof(path), "%s/.config/univim/vn_config", home);
   FILE* file = fopen(path, "r");
   if (!file) return;
 
@@ -173,13 +173,13 @@ void vn_input_begin(struct vn_input* vn) {
 
   char* home = getenv("HOME");
   char path[512];
-  snprintf(path, sizeof(path), "%s/.config/svim/vn_blacklist", home);
+  snprintf(path, sizeof(path), "%s/.config/univim/vn_blacklist", home);
   struct string_list list = load_string_list(path);
   vn->blacklist = list.items;
   vn->blacklist_count = list.count;
 
   char overrides_path[512];
-  snprintf(overrides_path, sizeof(overrides_path), "%s/.config/svim/vn_overrides", home);
+  snprintf(overrides_path, sizeof(overrides_path), "%s/.config/univim/vn_overrides", home);
   struct vn_override_list overrides = load_vn_overrides(overrides_path);
   vn->overrides = overrides.items;
   vn->overrides_count = overrides.count;
@@ -202,7 +202,7 @@ void vn_input_toggle(struct vn_input* vn) {
 
   char* home = getenv("HOME");
   char buf[512];
-  snprintf(buf, sizeof(buf), "%s/.config/svim/svim.sh", home);
+  snprintf(buf, sizeof(buf), "%s/.config/univim/svim.sh", home);
   vfork_exec(buf, &env_vars);
   env_vars_destroy(&env_vars);
 }

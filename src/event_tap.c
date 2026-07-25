@@ -268,7 +268,7 @@ void event_tap_load_blacklist(struct event_tap* event_tap) {
 
   char* home = getenv("HOME");
   char buf[512];
-  snprintf(buf, sizeof(buf), "%s/%s", home, ".config/svim/blacklist");
+  snprintf(buf, sizeof(buf), "%s/%s", home, ".config/univim/blacklist");
 
   struct string_list list = load_string_list(buf);
   event_tap->blacklist = list.items;
