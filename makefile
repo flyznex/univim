@@ -52,6 +52,15 @@ app: $(ODIR)/univim
 		'</dict>' \
 		'</plist>' \
 		> $(ODIR)/UniVim.app/Contents/Info.plist
+	# Signs with a local, per-machine self-signed identity (auto-created if
+	# missing) instead of the linker's default ad-hoc signature -- an
+	# ad-hoc signature hashes the binary's own bytes, so it changes on
+	# every rebuild and macOS treats each one as a "different app",
+	# requiring Accessibility permission to be re-granted every time. A
+	# stable identity here means it only needs to be granted once per
+	# machine, surviving rebuilds/reinstalls.
+	scripts/ensure_codesign_cert.sh univim-cert
+	codesign --force --sign univim-cert $(ODIR)/UniVim.app
 
 x86: CFLAGS = $(WARN_FLAGS) $(DEFINES) -g -Ilib -Ilib/libvim/proto -std=c99 -O2 -target x86_64-apple-macos12.0
 x86: $(ODIR)/univim
