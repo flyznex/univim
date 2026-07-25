@@ -75,14 +75,27 @@ Visual Studio Code 0 select
   changes require a restart of UniVim to take effect.
 
 ## Installation
-No packaged distribution yet -- build from source:
+
+### Via Homebrew (recommended)
 ```bash
-git clone https://github.com/flyznex/SketchyVim.git univim
+brew tap flyznex/taproom
+brew install --HEAD flyznex/taproom/univim
+brew services start flyznex/taproom/univim
+```
+No stable release tag exists yet, so `--HEAD` is required (builds from the
+`master` branch). The first run will ask you to grant Accessibility
+permissions to `UniVim.app` (found via `System Settings > Privacy &
+Security > Accessibility`, path `$(brew --prefix)/opt/univim/libexec/UniVim.app`).
+
+### Build from source
+```bash
+git clone https://github.com/flyznex/univim.git univim
 cd univim
-git submodule update --init --recursive
 make
 ```
-This produces `bin/univim`. Run it directly, or set up your own launchd
+This produces `bin/univim` (`lib/libvim.a`/`lib/libunikey.a` are already
+committed prebuilt, so no submodule checkout or extra build step is
+needed for a normal build). Run it directly, or set up your own launchd
 job/login item to keep it running in the background; the first run will
 ask you to grant accessibility permissions.
 
