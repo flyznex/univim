@@ -94,6 +94,19 @@ No stable release tag exists yet, so `--HEAD` is required (builds from the
 permissions to `UniVim.app` (found via `System Settings > Privacy &
 Security > Accessibility`, path `$(brew --prefix)/opt/univim/libexec/UniVim.app`).
 
+`UniVim.app` is ad-hoc signed by default, so macOS treats every rebuild as
+a "different app" and Accessibility permission has to be re-granted after
+every `brew reinstall`/`brew upgrade`. To avoid that, sign it with a
+stable per-machine identity instead (once, and again after any
+reinstall/upgrade -- this can't be automated from the Formula itself,
+Homebrew's build sandbox blocks writing to your login keychain):
+```bash
+$(brew --prefix)/opt/univim/libexec/ensure_codesign_cert.sh univim-cert
+codesign --force --sign univim-cert $(brew --prefix)/opt/univim/libexec/UniVim.app
+```
+Accessibility only needs re-granting once per machine after that, even
+across reinstalls, as long as this is re-run each time.
+
 ### Build from source
 ```bash
 git clone https://github.com/flyznex/univim.git univim
