@@ -12,13 +12,18 @@ set -e
 
 CERT_NAME="${1:?usage: ensure_codesign_cert.sh <cert-name>}"
 
-# Deliberately not hardcoding $HOME/Library/Keychains/login.keychain-db --
+# Resolve the real login keychain via Directory Services, not $HOME --
 # Homebrew's sandboxed build runs with an isolated fake $HOME with no
-# keychain file at that path at all ("keychain could not be found"), while
-# the real default keychain (tied to the actual login session, not $HOME)
-# is still reachable through the default search list. Every `security`
-# call below omits `-k` for the same reason.
-if security find-identity -v -p codesigning 2>/dev/null | grep -q "\"$CERT_NAME\""; then
+# keychain at $HOME/Library/Keychains/login.keychain-db, and `security`
+# actually does resolve its *default* keychain relative to $HOME too, so
+# omitting -k doesn't help either: it fails to import with no error output
+# at all under a fake $HOME (confirmed directly). dscl's NFSHomeDirectory
+# reflects the real account home directory regardless of what $HOME the
+# calling process happens to have (confirmed the same way).
+REAL_HOME=$(dscl . -read "/Users/$(whoami)" NFSHomeDirectory | awk '{print $2}')
+KEYCHAIN="$REAL_HOME/Library/Keychains/login.keychain-db"
+
+if security find-identity -v -p codesigning "$KEYCHAIN" 2>/dev/null | grep -q "\"$CERT_NAME\""; then
   exit 0
 fi
 
@@ -65,13 +70,11 @@ openssl pkcs12 -export $LEGACY_FLAG -out "$TMPDIR/cert.p12" \
   -inkey "$TMPDIR/key.pem" -in "$TMPDIR/cert.pem" -passout "pass:$PKCS12_PASSWORD"
 
 # -T /usr/bin/codesign lets codesign use the private key without a
-# keychain-unlock prompt on every build. No -k: goes to the default
-# keychain (see note above on why it isn't hardcoded).
-security import "$TMPDIR/cert.p12" -P "$PKCS12_PASSWORD" -T /usr/bin/codesign -A
+# keychain-unlock prompt on every build.
+security import "$TMPDIR/cert.p12" -k "$KEYCHAIN" -P "$PKCS12_PASSWORD" -T /usr/bin/codesign -A
 
-# Trust scoped to the default keychain only (no sudo/System keychain
-# needed) -- sufficient for codesign to treat it as a valid signing
-# identity.
-security add-trusted-cert -p codeSign "$TMPDIR/cert.pem"
+# Trust scoped to this login keychain only (no sudo/System keychain needed)
+# -- sufficient for codesign to treat it as a valid signing identity.
+security add-trusted-cert -p codeSign -k "$KEYCHAIN" "$TMPDIR/cert.pem"
 
 echo "Created and trusted '$CERT_NAME' for code signing."
