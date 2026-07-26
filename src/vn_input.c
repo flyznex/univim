@@ -82,37 +82,118 @@ static CGEventFlags parse_hotkey(const char* str) {
   return mask;
 }
 
-static void vn_config_load(struct vn_input* vn) {
-  vn->method = VN_METHOD_SIMPLETELEX;
-  vn->hotkey_mask = kCGEventFlagMaskControl | kCGEventFlagMaskShift;
-  vn->debug = false;
+static void notify_config_error(const char* error_msg) {
+  struct env_vars env_vars;
+  env_vars_init(&env_vars);
+  env_vars_set(&env_vars, string_copy("UNIVIM_CONFIG_ERROR"), string_copy((char*)error_msg));
 
+  char* home = getenv("HOME");
+  char buf[512];
+  snprintf(buf, sizeof(buf), "%s/.config/univim/svim.sh", home);
+  vfork_exec(buf, &env_vars);
+  env_vars_destroy(&env_vars);
+}
+
+// Returns error message if any, NULL if no errors. Caller must free.
+// Preserves previous values for fields that fail to parse.
+static char* vn_config_load(struct vn_input* vn, bool is_reload) {
   char* home = getenv("HOME");
   char path[512];
   snprintf(path, sizeof(path), "%s/.config/univim/vn_config", home);
   FILE* file = fopen(path, "r");
-  if (!file) return;
+  if (!file) return NULL; // No config file is not an error
+
+  char errors[1024] = "";
+  int error_count = 0;
+  int line_num = 0;
+
+  // Defaults for fresh load, preserved values for reload
+  vn_method new_method = is_reload ? vn->method : VN_METHOD_SIMPLETELEX;
+  CGEventFlags new_hotkey = is_reload ? vn->hotkey_mask : (kCGEventFlagMaskControl | kCGEventFlagMaskShift);
+  bool new_debug = is_reload ? vn->debug : false;
 
   char line[255];
   while (fgets(line, sizeof(line), file)) {
+    line_num++;
     uint32_t len = strlen(line);
     if (len > 0 && line[len - 1] == '\n') line[--len] = '\0';
+    if (len == 0 || line[0] == '#') continue; // Skip empty lines and comments
+
     char* eq = strchr(line, '=');
-    if (!eq) continue;
+    if (!eq) {
+      if (error_count < 3) {
+        char err[128];
+        snprintf(err, sizeof(err), "line %d: missing '=' in '%s'\n", line_num, line);
+        strncat(errors, err, sizeof(errors) - strlen(errors) - 1);
+      }
+      error_count++;
+      continue;
+    }
     *eq = '\0';
     char* key = line;
     char* value = eq + 1;
+
     if (strcmp(key, "method") == 0) {
-      if (strcmp(value, "vni") == 0) vn->method = VN_METHOD_VNI;
-      else if (strcmp(value, "telex") == 0) vn->method = VN_METHOD_TELEX;
-      else vn->method = VN_METHOD_SIMPLETELEX; // "simpletelex" or unrecognized
+      if (strcmp(value, "vni") == 0) new_method = VN_METHOD_VNI;
+      else if (strcmp(value, "telex") == 0) new_method = VN_METHOD_TELEX;
+      else if (strcmp(value, "simpletelex") == 0) new_method = VN_METHOD_SIMPLETELEX;
+      else {
+        if (error_count < 3) {
+          char err[128];
+          snprintf(err, sizeof(err), "line %d: invalid method '%s'\n", line_num, value);
+          strncat(errors, err, sizeof(errors) - strlen(errors) - 1);
+        }
+        error_count++;
+      }
     } else if (strcmp(key, "hotkey") == 0) {
-      vn->hotkey_mask = parse_hotkey(value);
+      CGEventFlags mask = parse_hotkey(value);
+      if (mask == 0 && strlen(value) > 0) {
+        if (error_count < 3) {
+          char err[128];
+          snprintf(err, sizeof(err), "line %d: invalid hotkey '%s'\n", line_num, value);
+          strncat(errors, err, sizeof(errors) - strlen(errors) - 1);
+        }
+        error_count++;
+      } else {
+        new_hotkey = mask;
+      }
     } else if (strcmp(key, "debug") == 0) {
-      vn->debug = (strcmp(value, "1") == 0 || strcmp(value, "on") == 0);
+      if (strcmp(value, "1") == 0 || strcmp(value, "on") == 0) new_debug = true;
+      else if (strcmp(value, "0") == 0 || strcmp(value, "off") == 0) new_debug = false;
+      else {
+        if (error_count < 3) {
+          char err[128];
+          snprintf(err, sizeof(err), "line %d: invalid debug value '%s'\n", line_num, value);
+          strncat(errors, err, sizeof(errors) - strlen(errors) - 1);
+        }
+        error_count++;
+      }
+    } else {
+      if (error_count < 3) {
+        char err[128];
+        snprintf(err, sizeof(err), "line %d: unknown key '%s'\n", line_num, key);
+        strncat(errors, err, sizeof(errors) - strlen(errors) - 1);
+      }
+      error_count++;
     }
   }
   fclose(file);
+
+  // Apply successfully parsed values
+  vn->method = new_method;
+  vn->hotkey_mask = new_hotkey;
+  vn->debug = new_debug;
+
+  if (error_count > 0) {
+    char* result = malloc(1200);
+    if (error_count > 3) {
+      snprintf(result, 1200, "vn_config: %d errors\n%s... and %d more", error_count, errors, error_count - 3);
+    } else {
+      snprintf(result, 1200, "vn_config: %d error(s)\n%s", error_count, errors);
+    }
+    return result;
+  }
+  return NULL;
 }
 // Row format: "AppName delay_ms strategy" -- AppName may contain spaces
 // (e.g. "Visual Studio Code"), so this parses from the *end* of the line:
@@ -171,7 +252,12 @@ struct vn_override_list load_vn_overrides(const char* path) {
 
 void vn_input_begin(struct vn_input* vn) {
   vn->enabled = false;
-  vn_config_load(vn);
+  char* config_error = vn_config_load(vn, false);
+  if (config_error) {
+    notify_config_error(config_error);
+    vn_debug_log("vn_input_begin: %s", config_error);
+    free(config_error);
+  }
 
   char* home = getenv("HOME");
   char path[512];
@@ -198,7 +284,12 @@ void vn_input_begin(struct vn_input* vn) {
 
 void vn_input_reload_config(struct vn_input* vn) {
   vn_method old_method = vn->method;
-  vn_config_load(vn);
+  char* config_error = vn_config_load(vn, true);
+  if (config_error) {
+    notify_config_error(config_error);
+    vn_debug_log("vn_input_reload_config: %s", config_error);
+    free(config_error);
+  }
 
   // Update engine method if changed
   if (vn->method != old_method) {

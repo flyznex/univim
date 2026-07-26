@@ -131,7 +131,7 @@ static void watch_file(struct config_watcher* watcher, int index) {
     dispatch_source_t source = dispatch_source_create(
         DISPATCH_SOURCE_TYPE_VNODE,
         fd,
-        DISPATCH_VNODE_WRITE | DISPATCH_VNODE_DELETE | DISPATCH_VNODE_RENAME,
+        DISPATCH_VNODE_WRITE | DISPATCH_VNODE_EXTEND | DISPATCH_VNODE_ATTRIB | DISPATCH_VNODE_DELETE | DISPATCH_VNODE_RENAME,
         dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)
     );
 
@@ -181,6 +181,7 @@ void config_watcher_begin(struct config_watcher* watcher) {
         watcher->sources[i] = NULL;
         watch_file(watcher, i);
     }
+    vn_debug_log("config_watcher_begin: watching %d config files", CONFIG_FILE_COUNT);
 }
 
 void config_watcher_end(struct config_watcher* watcher) {
