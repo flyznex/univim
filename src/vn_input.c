@@ -196,6 +196,16 @@ void vn_input_begin(struct vn_input* vn) {
   statusbar_init();
 }
 
+void vn_input_reload_config(struct vn_input* vn) {
+  vn_method old_method = vn->method;
+  vn_config_load(vn);
+
+  // Update engine method if changed
+  if (vn->method != old_method) {
+    vn_engine_set_method(vn->method);
+  }
+}
+
 void vn_input_toggle(struct vn_input* vn) {
   vn->enabled = !vn->enabled;
   vn_engine_reset();
