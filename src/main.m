@@ -5,6 +5,7 @@
 #include "workspace.h"
 #include "vn_input.h"
 #include "config_watcher.h"
+#include "codesign_selfheal.h"
 
 void* g_workspace;
 
@@ -39,6 +40,8 @@ int main (int argc, char *argv[]) {
   NSApplicationLoad();
   signal(SIGCHLD, SIG_IGN);
   signal(SIGPIPE, SIG_IGN);
+
+  codesign_selfheal_relaunch_if_needed(argc, argv);
 
   acquire_lockfile();
   ax_begin(&g_ax);
