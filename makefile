@@ -12,10 +12,10 @@ CFLAGS = $(WARN_FLAGS) $(DEFINES) -g -Ilib -Ilib/libvim/proto -std=c99 -O2 #-fsa
 ODIR = bin
 SRC = src
 
-_OBJ = helpers.om helpers.o workspace.om event_tap.o ax.o buffer.o line.o env_vars.o vn_engine.o vn_input.o toast.om config_watcher.o
+_OBJ = helpers.om helpers.o workspace.om event_tap.o ax.o buffer.o line.o env_vars.o vn_engine.o vn_input.o toast.om config_watcher.o codesign_selfheal.o
 OBJ = $(patsubst %, $(ODIR)/%, $(_OBJ))
 
-.PHONY: all x86 arm64 universal sign lib clean app sign-app
+.PHONY: all x86 arm64 universal sign lib clean app sign-app test-selfheal
 
 all: $(ODIR)/univim
 
@@ -30,6 +30,8 @@ app: $(ODIR)/univim
 	mkdir -p $(ODIR)/UniVim.app/Contents/Resources
 	cp $(ODIR)/univim $(ODIR)/UniVim.app/Contents/MacOS/univim
 	cp icons/uv.icns $(ODIR)/UniVim.app/Contents/Resources/uv.icns
+	cp scripts/ensure_codesign_cert.sh $(ODIR)/UniVim.app/Contents/Resources/ensure_codesign_cert.sh
+	chmod +x $(ODIR)/UniVim.app/Contents/Resources/ensure_codesign_cert.sh
 	@printf '%s\n' \
 		'<?xml version="1.0" encoding="UTF-8"?>' \
 		'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
@@ -67,6 +69,10 @@ app: $(ODIR)/univim
 sign-app:
 	scripts/ensure_codesign_cert.sh univim-cert
 	codesign --force --sign univim-cert $(ODIR)/UniVim.app
+
+test-selfheal: | $(ODIR)
+	$(CC) -std=c99 -Wall -Werror -Isrc src/codesign_selfheal.c src/codesign_selfheal_test.c -o $(ODIR)/test-selfheal
+	$(ODIR)/test-selfheal
 
 x86: CFLAGS = $(WARN_FLAGS) $(DEFINES) -g -Ilib -Ilib/libvim/proto -std=c99 -O2 -target x86_64-apple-macos12.0
 x86: $(ODIR)/univim
