@@ -42,10 +42,15 @@ Toggle it on/off with a hotkey (default `control+shift`). Configure it via
 method=simpletelex  # telex, simpletelex (default), or vni
 hotkey=control+shift
 debug=1             # logs routing/correction decisions to ~/.config/univim/vn_debug.log
+modern_style=1      # 1/on (default, e.g. "hoà") or 0/off (old style, e.g. "hòa")
 ```
 `simpletelex` is libunikey's `UkSimpleTelex` input method -- a typing-feel
 preference, not a different rule set (confirmed identical composition
 output to `telex` on every case tested).
+
+`modern_style` defaults to modern tone-mark placement -- a behavior change
+from earlier versions, which always typed old style with no way to
+switch. Set `modern_style=0` to keep the old-style output you're used to.
 
 `~/.config/univim/vn_blacklist` excludes apps from Vietnamese input entirely
 (same one-app-or-bundle-id-per-line format as `blacklist` above).

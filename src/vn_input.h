@@ -24,6 +24,7 @@ struct vn_input {
   char** blacklist;
   uint32_t blacklist_count;
   vn_method method;
+  bool modern_style;
   CGEventFlags hotkey_mask;
   struct vn_override* overrides;
   uint32_t overrides_count;
