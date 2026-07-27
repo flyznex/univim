@@ -1,6 +1,15 @@
 .DS_Store
 bin
+build
 *.tgz
 .cache
 compile_commands.json
 .worktrees
+
+# CMake
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+Makefile
+*.cmake
+!cmake/*.in

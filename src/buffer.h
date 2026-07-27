@@ -38,6 +38,7 @@ struct buffer {
 };
 
 void buffer_begin(struct buffer* buffer);
+void buffer_reload_svimrc(struct buffer* buffer);
 void buffer_input(struct buffer* buffer, UniChar key, UniCharCount count);
 void buffer_input_string(struct buffer* buffer, int backspace_count, const char* text);
 void buffer_clear(struct buffer* buffer);

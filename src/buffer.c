@@ -25,6 +25,13 @@ void buffer_begin(struct buffer* buffer) {
   buffer_loadrc(buffer);
 }
 
+void buffer_reload_svimrc(struct buffer* buffer) {
+  // Re-execute svimrc — libvim accumulates settings, so this applies any
+  // new mappings/options on top of existing state. For a full reset, user
+  // would need to restart the app.
+  buffer_loadrc(buffer);
+}
+
 static inline bool buffer_update_raw_text(struct buffer* buffer) {
   uint32_t lines = vimBufferGetLineCount(buffer->vbuf);
 

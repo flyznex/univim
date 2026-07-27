@@ -4,6 +4,7 @@
 #include "ax.h"
 #include "workspace.h"
 #include "vn_input.h"
+#include "config_watcher.h"
 
 void* g_workspace;
 
@@ -49,6 +50,7 @@ int main (int argc, char *argv[]) {
   // which don't exist until vn_input_begin loads them.
   vn_input_begin(&g_vn_input);
   workspace_begin(&g_workspace);
+  config_watcher_begin(&g_config_watcher);
 
   CFRunLoopRun();
   return 0;
