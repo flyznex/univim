@@ -240,6 +240,13 @@ void buffer_revsync_text(struct buffer* buffer) {
   vimInput(INSERT_MODE);
   if (buffer->raw) vimInput(buffer->raw);
   if (buffer->cursor.mode & NORMAL) vimKey(NORMAL_MODE);
+  // Without this, buffer->cursor.mode stays whatever it was before this
+  // call (0 right after buffer_clear()) even though libvim itself was just
+  // forced into a definite mode above -- the very next VN routing decision
+  // reads that stale cached mode and treats a freshly-focused, empty field
+  // as "not insert mode", so the first keystroke bypasses the VN engine
+  // entirely and the word's tone marks never compose.
+  buffer_sync_mode(buffer);
   buffer_sync_text(buffer);
   buffer_sync_cursor(buffer);
 }
