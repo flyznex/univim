@@ -111,6 +111,7 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
   vn_method new_method = is_reload ? vn->method : VN_METHOD_SIMPLETELEX;
   CGEventFlags new_hotkey = is_reload ? vn->hotkey_mask : (kCGEventFlagMaskControl | kCGEventFlagMaskShift);
   bool new_debug = is_reload ? vn->debug : false;
+  bool new_modern_style = is_reload ? vn->modern_style : true;
 
   char line[255];
   while (fgets(line, sizeof(line), file)) {
@@ -168,6 +169,17 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
         }
         error_count++;
       }
+    } else if (strcmp(key, "modern_style") == 0) {
+      if (strcmp(value, "1") == 0 || strcmp(value, "on") == 0) new_modern_style = true;
+      else if (strcmp(value, "0") == 0 || strcmp(value, "off") == 0) new_modern_style = false;
+      else {
+        if (error_count < 3) {
+          char err[128];
+          snprintf(err, sizeof(err), "line %d: invalid modern_style value '%s'\n", line_num, value);
+          strncat(errors, err, sizeof(errors) - strlen(errors) - 1);
+        }
+        error_count++;
+      }
     } else {
       if (error_count < 3) {
         char err[128];
@@ -183,6 +195,7 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
   vn->method = new_method;
   vn->hotkey_mask = new_hotkey;
   vn->debug = new_debug;
+  vn->modern_style = new_modern_style;
 
   if (error_count > 0) {
     char* result = malloc(1200);
@@ -273,6 +286,7 @@ void vn_input_begin(struct vn_input* vn) {
   vn->overrides_count = overrides.count;
 
   vn_engine_init(vn->method);
+  vn_engine_set_tone_style(vn->modern_style);
 
   char macros_path[512];
   snprintf(macros_path, sizeof(macros_path), "%s/.config/univim/vn_macros", home);
@@ -284,6 +298,7 @@ void vn_input_begin(struct vn_input* vn) {
 
 void vn_input_reload_config(struct vn_input* vn) {
   vn_method old_method = vn->method;
+  bool old_modern_style = vn->modern_style;
   char* config_error = vn_config_load(vn, true);
   if (config_error) {
     notify_config_error(config_error);
@@ -294,6 +309,9 @@ void vn_input_reload_config(struct vn_input* vn) {
   // Update engine method if changed
   if (vn->method != old_method) {
     vn_engine_set_method(vn->method);
+  }
+  if (vn->modern_style != old_modern_style) {
+    vn_engine_set_tone_style(vn->modern_style);
   }
 }
 

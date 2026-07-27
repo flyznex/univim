@@ -42,6 +42,7 @@ Toggle it on/off with a hotkey (default `control+shift`). Configure it via
 method=simpletelex  # telex, simpletelex (default), or vni
 hotkey=control+shift
 debug=1             # logs routing/correction decisions to ~/.config/univim/vn_debug.log
+modern_style=1      # 1/on (default, e.g. "hoà") or 0/off (old style, e.g. "hòa")
 ```
 `simpletelex` is libunikey's `UkSimpleTelex` input method -- a typing-feel
 preference, not a different rule set (confirmed identical composition
