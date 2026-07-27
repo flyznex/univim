@@ -15,7 +15,7 @@ SRC = src
 _OBJ = helpers.om helpers.o workspace.om event_tap.o ax.o buffer.o line.o env_vars.o vn_engine.o vn_input.o toast.om config_watcher.o codesign_selfheal.o
 OBJ = $(patsubst %, $(ODIR)/%, $(_OBJ))
 
-.PHONY: all x86 arm64 universal sign lib clean app sign-app
+.PHONY: all x86 arm64 universal sign lib clean app sign-app test-selfheal
 
 all: $(ODIR)/univim
 
@@ -69,6 +69,10 @@ app: $(ODIR)/univim
 sign-app:
 	scripts/ensure_codesign_cert.sh univim-cert
 	codesign --force --sign univim-cert $(ODIR)/UniVim.app
+
+test-selfheal:
+	$(CC) -std=c99 -Wall -Werror -Isrc src/codesign_selfheal.c src/codesign_selfheal_test.c -o $(ODIR)/test-selfheal
+	$(ODIR)/test-selfheal
 
 x86: CFLAGS = $(WARN_FLAGS) $(DEFINES) -g -Ilib -Ilib/libvim/proto -std=c99 -O2 -target x86_64-apple-macos12.0
 x86: $(ODIR)/univim

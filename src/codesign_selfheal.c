@@ -10,6 +10,15 @@
 #define STABLE_IDENTITY "univim-cert"
 #define REEXEC_GUARD_ENV "UNIVIM_RESIGN_ATTEMPTED"
 
+bool codesign_selfheal_bundle_path(const char* resolved_exe_path, char* bundle_path, size_t bundle_path_size) {
+  const char* macos_dir = strstr(resolved_exe_path, ".app/Contents/MacOS/");
+  if (!macos_dir) return false;
+
+  size_t bundle_len = (size_t)(macos_dir - resolved_exe_path) + 4; // + ".app"
+  snprintf(bundle_path, bundle_path_size, "%.*s", (int)bundle_len, resolved_exe_path);
+  return true;
+}
+
 // Ad-hoc signing (the linker's default, and what every `brew
 // reinstall`/`upgrade` produces) hashes the binary's own bytes, so each
 // rebuild looks like a "different app" to TCC and Accessibility has to be
@@ -35,12 +44,8 @@ void codesign_selfheal_relaunch_if_needed(int argc, char* argv[]) {
   // resolved looks like ".../UniVim.app/Contents/MacOS/univim" -- find the
   // bundle root. Not running from inside a bundle (e.g. `make sign`'s
   // plain bin/univim) -- nothing to self-heal, just run.
-  char* macos_dir = strstr(resolved, ".app/Contents/MacOS/");
-  if (!macos_dir) return;
-
-  size_t bundle_len = (size_t)(macos_dir - resolved) + 4; // + ".app"
   char bundle_path[PATH_MAX];
-  snprintf(bundle_path, sizeof(bundle_path), "%.*s", (int)bundle_len, resolved);
+  if (!codesign_selfheal_bundle_path(resolved, bundle_path, sizeof(bundle_path))) return;
 
   char check_cmd[PATH_MAX + 128];
   snprintf(check_cmd, sizeof(check_cmd),

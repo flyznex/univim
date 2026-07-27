@@ -37,11 +37,11 @@ static void acquire_lockfile(void) {
 }
 
 int main (int argc, char *argv[]) {
+  codesign_selfheal_relaunch_if_needed(argc, argv);
+
   NSApplicationLoad();
   signal(SIGCHLD, SIG_IGN);
   signal(SIGPIPE, SIG_IGN);
-
-  codesign_selfheal_relaunch_if_needed(argc, argv);
 
   acquire_lockfile();
   ax_begin(&g_ax);
