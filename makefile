@@ -70,7 +70,7 @@ sign-app:
 	scripts/ensure_codesign_cert.sh univim-cert
 	codesign --force --sign univim-cert $(ODIR)/UniVim.app
 
-test-selfheal:
+test-selfheal: | $(ODIR)
 	$(CC) -std=c99 -Wall -Werror -Isrc src/codesign_selfheal.c src/codesign_selfheal_test.c -o $(ODIR)/test-selfheal
 	$(ODIR)/test-selfheal
 
