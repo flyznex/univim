@@ -11,6 +11,7 @@ struct vn_engine_result {
 
 void vn_engine_init(vn_method method);
 void vn_engine_set_method(vn_method method);
+void vn_engine_set_tone_style(bool modern);
 void vn_engine_reset(void);
 // Loads user-defined "key:text" shortcut lines from `path` (e.g.
 // ~/.config/univim/vn_macros) into libunikey's macro table and enables

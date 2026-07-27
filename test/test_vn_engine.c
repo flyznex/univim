@@ -64,6 +64,36 @@ int main(void) {
   // silently fall back to UkTelex/VNI.
   check("simpletelex default method", VN_METHOD_SIMPLETELEX, "thaays", "th\xe1\xba\xa5y"); // "thấy"
 
+  // modern vs. old tone-mark placement (vn_config's `modern_style=`) --
+  // libunikey defaults to old style (modernStyle=0); vn_engine_set_tone_style
+  // must actually flip UnikeyOptions.modernStyle, not silently no-op.
+  {
+    vn_engine_set_method(VN_METHOD_TELEX);
+
+    vn_engine_set_tone_style(false);
+    vn_engine_reset();
+    char out_old[64];
+    type_sequence("hoaf", out_old, sizeof(out_old));
+    printf("[tone style old] keys=\"hoaf\" got=\"%s\" want=\"h\xc3\xb2" "a\" %s\n",
+           out_old, strcmp(out_old, "h\xc3\xb2" "a") == 0 ? "OK" : "MISMATCH");
+    assert(strcmp(out_old, "h\xc3\xb2" "a") == 0); // "hòa"
+
+    vn_engine_set_tone_style(true);
+    vn_engine_reset();
+    char out_modern[64];
+    type_sequence("hoaf", out_modern, sizeof(out_modern));
+    printf("[tone style modern] keys=\"hoaf\" got=\"%s\" want=\"ho\xc3\xa0\" %s\n",
+           out_modern, strcmp(out_modern, "ho\xc3\xa0") == 0 ? "OK" : "MISMATCH");
+    assert(strcmp(out_modern, "ho\xc3\xa0") == 0); // "hoà"
+
+    // toggling back to old must also work, not just the first switch
+    vn_engine_set_tone_style(false);
+    vn_engine_reset();
+    char out_old2[64];
+    type_sequence("hoaf", out_old2, sizeof(out_old2));
+    assert(strcmp(out_old2, "h\xc3\xb2" "a") == 0); // "hòa"
+  }
+
   // Macro shortcut expansion (vn_engine_load_macros): user-facing vn_macros
   // files are plain "key:text" lines with no header -- vn_engine_load_macros
   // must add libunikey's required UTF-8 version header itself, or accented

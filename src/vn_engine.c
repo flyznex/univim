@@ -65,6 +65,17 @@ void vn_engine_set_method(vn_method method) {
   }
 }
 
+// libunikey's own CreateDefaultUnikeyOptions() defaults modernStyle to 0
+// (old style, e.g. "hòa"); svim defaults to modern style (e.g. "hoà")
+// instead via vn_config's `modern_style=`, so callers apply this after
+// vn_engine_init to override libunikey's built-in default.
+void vn_engine_set_tone_style(bool modern) {
+  UnikeyOptions opt;
+  UnikeyGetOptions(&opt);
+  opt.modernStyle = modern ? 1 : 0;
+  UnikeySetOptions(&opt);
+}
+
 // libunikey reports UnikeyBackspaces as a count of UTF-8 *bytes* to remove
 // from whatever was previously output (confirmed empirically: a plain byte
 // subtraction on a byte buffer reproduces every Telex/VNI test case
