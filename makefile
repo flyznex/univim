@@ -30,6 +30,8 @@ app: $(ODIR)/univim
 	mkdir -p $(ODIR)/UniVim.app/Contents/Resources
 	cp $(ODIR)/univim $(ODIR)/UniVim.app/Contents/MacOS/univim
 	cp icons/uv.icns $(ODIR)/UniVim.app/Contents/Resources/uv.icns
+	cp scripts/ensure_codesign_cert.sh $(ODIR)/UniVim.app/Contents/Resources/ensure_codesign_cert.sh
+	chmod +x $(ODIR)/UniVim.app/Contents/Resources/ensure_codesign_cert.sh
 	@printf '%s\n' \
 		'<?xml version="1.0" encoding="UTF-8"?>' \
 		'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
