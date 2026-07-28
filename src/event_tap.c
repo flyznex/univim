@@ -81,6 +81,22 @@ void vn_post_correction(struct vn_post_target target, int backspace_count, const
       // than event-ordering, so it needs to stand out from the timing noise.
       vn_debug_log("vn_post_correction: CFStringCreateWithBytes FAILED, insert silently dropped");
     }
+  } else if (select_strategy && backspace_count > 0) {
+    // Select strategy just highlighted backspace_count characters above,
+    // expecting the insert below to type over them -- a plain backspace/
+    // tone-undo correction (insert_len == 0, nothing to replace them with)
+    // leaves that selection sitting there instead of actually removing
+    // anything. One Delete removes a whole selection in one press
+    // regardless of how many characters it spans.
+    CGEventRef down = CGEventCreateKeyboardEvent(source, kVK_Delete, true);
+    CGEventRef up   = CGEventCreateKeyboardEvent(source, kVK_Delete, false);
+    CGEventSetIntegerValueField(down, kCGEventSourceUserData, VN_SYNTH_TAG);
+    CGEventSetIntegerValueField(up, kCGEventSourceUserData, VN_SYNTH_TAG);
+    vn_post_event(target.proxy, down);
+    vn_post_event(target.proxy, up);
+    CFRelease(down);
+    CFRelease(up);
+    vn_debug_log("vn_post_correction: select strategy with no replacement, deleted the selection");
   }
 
   // HACK: small safety margin on top of the pid-targeted delivery above --
