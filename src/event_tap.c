@@ -251,7 +251,13 @@ static CGEventRef key_handler(CGEventTapProxy proxy, CGEventType type,
                   (unsigned long long) flags,
                   (unsigned long long) (flags & VN_HOTKEY_RELEVANT_FLAGS),
                   (unsigned long long) g_vn_input.hotkey_mask);
-      if (g_vn_input.hotkey_mask && (flags & VN_HOTKEY_RELEVANT_FLAGS) == g_vn_input.hotkey_mask) {
+      // Only pure modifier-only chords (has_hotkey_keycode == false) are detected
+      // here -- combos that include a regular key (e.g. control+space) are
+      // handled exclusively by the kCGEventKeyDown check below, since otherwise
+      // this would also fire on the bare modifier subset of that combo (e.g.
+      // plain Control alone) for any unrelated keystroke.
+      if (!g_vn_input.has_hotkey_keycode && g_vn_input.hotkey_mask
+          && (flags & VN_HOTKEY_RELEVANT_FLAGS) == g_vn_input.hotkey_mask) {
         vn_input_toggle(&g_vn_input);
         vn_debug_log("vn_input_toggle fired, enabled now=%d", g_vn_input.enabled);
       }
@@ -261,6 +267,29 @@ static CGEventRef key_handler(CGEventTapProxy proxy, CGEventType type,
       vn_engine_reset();
     } break;
     case kCGEventKeyDown: {
+      // Modifier+regular-key hotkeys (e.g. control+space) can't be
+      // detected via kCGEventFlagsChanged like the modifier-only case
+      // above -- regular keys never fire that event type -- so this is a
+      // second, independent check, global exactly like the modifier-only
+      // one (not gated on front_app_ignored). Autorepeat is excluded:
+      // holding the combo down must toggle once, not flip on/off
+      // repeatedly for as long as it's held.
+      if (g_vn_input.has_hotkey_keycode) {
+        int64_t keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+        bool is_repeat = CGEventGetIntegerValueField(event, kCGKeyboardEventAutorepeat);
+        CGEventFlags flags = CGEventGetFlags(event);
+        vn_debug_log("keyDown hotkey check: keycode=%lld want=%lld flags=0x%llx masked=0x%llx want_mask=0x%llx is_repeat=%d",
+                    (long long) keycode, (long long) g_vn_input.hotkey_keycode,
+                    (unsigned long long) flags, (unsigned long long) (flags & VN_HOTKEY_RELEVANT_FLAGS),
+                    (unsigned long long) g_vn_input.hotkey_mask, is_repeat);
+        if (!is_repeat && keycode == g_vn_input.hotkey_keycode
+            && (flags & VN_HOTKEY_RELEVANT_FLAGS) == g_vn_input.hotkey_mask) {
+          vn_input_toggle(&g_vn_input);
+          vn_debug_log("vn_input_toggle fired (regular-key hotkey), enabled now=%d", g_vn_input.enabled);
+          return NULL;
+        }
+      }
+
       struct event_tap* event_tap = (struct event_tap*) reference;
       if (event_tap->front_app_ignored) {
         if (g_ax.selected_element && g_ax.role) {

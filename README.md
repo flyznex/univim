@@ -44,6 +44,13 @@ hotkey=control+shift
 debug=1             # logs routing/correction decisions to ~/.config/univim/vn_debug.log
 modern_style=1      # 1/on (default, e.g. "hoà") or 0/off (old style, e.g. "hòa")
 ```
+`hotkey=` is `+`-joined modifiers (`control`/`shift`/`command`/`option`),
+optionally plus exactly one regular key -- `space`, a single letter `a`-`z`,
+or a single digit `0`-`9` -- e.g. `hotkey=control+space` or
+`hotkey=command+option+j`. A regular key always needs at least one
+modifier alongside it (a bare `hotkey=space` would swallow every Space
+keystroke app-wide, so it's rejected as invalid instead).
+
 `simpletelex` is libunikey's `UkSimpleTelex` input method -- a typing-feel
 preference, not a different rule set (confirmed identical composition
 output to `telex` on every case tested).
