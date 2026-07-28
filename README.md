@@ -66,6 +66,29 @@ One `key:text` shortcut per line, plain UTF-8. Active automatically whenever
 this file exists. A shortcut expands when followed by a word-break key
 (space, punctuation, ...); it only matches as a whole word.
 
+### VimL scripting in svimrc
+`svimrc` isn't limited to simple `:map`/`:set` one-liners — it's sourced
+through libvim's real VimL engine, so `:function`, `:let`, control flow,
+and built-ins like `expand('<cword>')` all work.
+
+One rule, confirmed by hand-testing: for a mapping that calls a function,
+use an `<expr>` mapping that returns a keystring, e.g.
+```vim
+nnoremap <expr> <C-t> MyFunc()
+```
+**not** `nnoremap <C-t> :call MyFunc()<CR>`. The latter enters real
+command-line mode and leaves it within a single keystroke, which visibly
+corrupts this app's mode/cursor sync (cursor shape, vanishing text, dead
+Escape). `<expr>` mappings never enter command-line mode at all, so they
+don't hit this.
+
+See `examples/svimrc_toggle` for a full worked example: cycling the word
+under the cursor through related values (`true`/`false`, `on`/`off`,
+`public`/`protected`/`private`, ...), [toggle.nvim](https://github.com/leblocks/toggle.nvim)-style.
+
+Also note: comments (`"`) in `svimrc` break the config (see Known Issues)
+— keep scripted `svimrc` content comment-free.
+
 ### Per-app correction tuning
 Some apps need a different delay or correction strategy than the defaults
 (5ms, backspace-based deletion). Configure this per app in
