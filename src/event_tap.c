@@ -154,11 +154,19 @@ CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventTapProxy pro
   // guard below treats a held arrow key as a held letter and drops every
   // repeat after the first, so holding Right/Down/etc. here moved the
   // cursor once and then stopped.
+  //
+  // vn_engine_reset() here too: word_history/libunikey's buffer otherwise
+  // still hold the last-typed char as "pending" after the cursor moves away
+  // from it, so a later key composes a tone mark meant for that abandoned
+  // char and the correction lands at the *new* cursor position instead
+  // (typing "a", pressing Left, then "s" produced "áa" instead of "sa").
   if (keycode == kVK_LeftArrow || keycode == kVK_RightArrow
       || keycode == kVK_UpArrow || keycode == kVK_DownArrow
       || keycode == kVK_Home || keycode == kVK_End
-      || keycode == kVK_PageUp || keycode == kVK_PageDown)
+      || keycode == kVK_PageUp || keycode == kVK_PageDown) {
+    vn_engine_reset();
     return event;
+  }
 
   // Enter never legitimately continues a composition into whatever comes
   // next (a submitted terminal line, a cleared chat field) -- but

@@ -94,6 +94,26 @@ int main(void) {
     assert(strcmp(out_old2, "h\xc3\xb2" "a") == 0); // "hòa"
   }
 
+  // regression: cursor moved away mid-composition (e.g. Left Arrow after "a")
+  // must not let a later keystroke still apply a tone mark meant for the
+  // abandoned "a" -- event_tap.c/ax.c call vn_engine_reset() on cursor
+  // navigation keys for exactly this reason (previously they didn't, so
+  // "a" + Left + "s" produced "áa" instead of "sa").
+  {
+    vn_engine_set_method(VN_METHOD_TELEX);
+    vn_engine_reset();
+    struct vn_engine_result r1 = vn_engine_process_key('a', false, false);
+    assert(r1.backspace_count == 0 && r1.insert_len == 0); // "a" passes through raw
+
+    vn_engine_reset(); // what the arrow-key handlers now do
+
+    struct vn_engine_result r2 = vn_engine_process_key('s', false, false);
+    printf("[cursor-move breaks composition] backspaces=%d insert_len=%d %s\n",
+           r2.backspace_count, r2.insert_len,
+           (r2.backspace_count == 0 && r2.insert_len == 0) ? "OK" : "MISMATCH");
+    assert(r2.backspace_count == 0 && r2.insert_len == 0); // "s" passes through raw too, not "á"
+  }
+
   // Macro shortcut expansion (vn_engine_load_macros): user-facing vn_macros
   // files are plain "key:text" lines with no header -- vn_engine_load_macros
   // must add libunikey's required UTF-8 version header itself, or accented

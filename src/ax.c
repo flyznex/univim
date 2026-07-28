@@ -257,11 +257,19 @@ CGEventRef ax_process_event(struct ax* ax, CGEventTapProxy proxy, CGEventRef eve
   // if the user had typed a literal character, corrupting the buffer every
   // time the cursor is repositioned mid-word (very common while placing a
   // Vietnamese tone mark).
+  //
+  // vn_engine_reset() here too (same reasoning as event_tap.c's identical
+  // check): otherwise vn_engine still treats the last-typed char as pending
+  // after the cursor moves away from it, so the next key composes a tone
+  // mark meant for that abandoned char and the correction lands at the new
+  // cursor position instead (e.g. "a", Left, "s" produced "áa" not "sa").
   if (keycode == kVK_LeftArrow || keycode == kVK_RightArrow
       || keycode == kVK_UpArrow || keycode == kVK_DownArrow
       || keycode == kVK_Home || keycode == kVK_End
-      || keycode == kVK_PageUp || keycode == kVK_PageDown)
+      || keycode == kVK_PageUp || keycode == kVK_PageDown) {
+    vn_engine_reset();
     return event;
+  }
 
   // Command+key combos break word context -- reset the VN engine so the next
   // word starts fresh (e.g. Cmd+A + Delete would otherwise leave stale state).
