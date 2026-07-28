@@ -66,8 +66,14 @@ void vn_debug_log(const char* fmt, ...) {
   fclose(file);
 }
 
-static CGEventFlags parse_hotkey(const char* str) {
+// The toggle hotkey can only ever be a combination of modifier keys --
+// detection happens on kCGEventFlagsChanged (fired only for
+// Control/Shift/Command/Option/CapsLock/Fn state changes), never on
+// kCGEventKeyDown, so a regular key (space, letters, ...) as part of the
+// combo is not something more token-parsing here could ever support.
+static CGEventFlags parse_hotkey(const char* str, bool* valid) {
   CGEventFlags mask = 0;
+  *valid = true;
   char buf[128];
   snprintf(buf, sizeof(buf), "%s", str);
 
@@ -77,6 +83,11 @@ static CGEventFlags parse_hotkey(const char* str) {
     else if (strcmp(token, "shift") == 0) mask |= kCGEventFlagMaskShift;
     else if (strcmp(token, "command") == 0) mask |= kCGEventFlagMaskCommand;
     else if (strcmp(token, "option") == 0) mask |= kCGEventFlagMaskAlternate;
+    else *valid = false; // unrecognized token (e.g. "space") -- previously
+                          // silently dropped with no error, so a typo'd or
+                          // unsupported hotkey= value quietly turned into
+                          // whatever modifiers *did* match instead of
+                          // telling the user anything was wrong.
     token = strtok(NULL, "+");
   }
   return mask;
@@ -101,17 +112,31 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
   char path[512];
   snprintf(path, sizeof(path), "%s/.config/univim/vn_config", home);
   FILE* file = fopen(path, "r");
-  if (!file) return NULL; // No config file is not an error
-
-  char errors[1024] = "";
-  int error_count = 0;
-  int line_num = 0;
 
   // Defaults for fresh load, preserved values for reload
   vn_method new_method = is_reload ? vn->method : VN_METHOD_SIMPLETELEX;
   CGEventFlags new_hotkey = is_reload ? vn->hotkey_mask : (kCGEventFlagMaskControl | kCGEventFlagMaskShift);
   bool new_debug = is_reload ? vn->debug : false;
   bool new_modern_style = is_reload ? vn->modern_style : true;
+
+  if (!file) {
+    // No config file is not an error -- but a fresh load (app startup, no
+    // vn_config ever existing) still needs these defaults actually applied
+    // to `vn`, not just computed and discarded here: returning early before
+    // ever assigning them left hotkey_mask at its zero-initialized value,
+    // silently disabling the toggle hotkey entirely (0 fails the `&&
+    // hotkey_mask` check in event_tap.c) instead of falling back to the
+    // documented default (control+shift).
+    vn->method = new_method;
+    vn->hotkey_mask = new_hotkey;
+    vn->debug = new_debug;
+    vn->modern_style = new_modern_style;
+    return NULL;
+  }
+
+  char errors[1024] = "";
+  int error_count = 0;
+  int line_num = 0;
 
   char line[255];
   while (fgets(line, sizeof(line), file)) {
@@ -147,8 +172,9 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
         error_count++;
       }
     } else if (strcmp(key, "hotkey") == 0) {
-      CGEventFlags mask = parse_hotkey(value);
-      if (mask == 0 && strlen(value) > 0) {
+      bool hotkey_valid;
+      CGEventFlags mask = parse_hotkey(value, &hotkey_valid);
+      if (!hotkey_valid || (mask == 0 && strlen(value) > 0)) {
         if (error_count < 3) {
           char err[128];
           snprintf(err, sizeof(err), "line %d: invalid hotkey '%s'\n", line_num, value);
