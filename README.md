@@ -51,6 +51,13 @@ or a single digit `0`-`9` -- e.g. `hotkey=control+space` or
 modifier alongside it (a bare `hotkey=space` would swallow every Space
 keystroke app-wide, so it's rejected as invalid instead).
 
+Some combos may already be claimed by macOS or another app before the
+keystroke ever reaches UniVim -- e.g. `control+space` is macOS's own
+default shortcut for switching input sources (System Settings > Keyboard >
+Keyboard Shortcuts > Input Sources). If a hotkey silently does nothing,
+check there (and any other app you know binds global shortcuts) before
+assuming UniVim is broken.
+
 `simpletelex` is libunikey's `UkSimpleTelex` input method -- a typing-feel
 preference, not a different rule set (confirmed identical composition
 output to `telex` on every case tested).
