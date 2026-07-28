@@ -3,6 +3,7 @@
 #include "buffer.h" // NORMAL / INSERT / VISUAL / CMDLINE mode bits, via libvim.h
 #include "env_vars.h"
 #include "toast.h"
+#include <Carbon/Carbon.h> // kVK_Space, kVK_ANSI_* -- the hotkey= regular-key lookup table
 
 struct vn_input g_vn_input;
 char g_vn_debug_app_name[256] = "";
@@ -66,30 +67,64 @@ void vn_debug_log(const char* fmt, ...) {
   fclose(file);
 }
 
-// The toggle hotkey can only ever be a combination of modifier keys --
-// detection happens on kCGEventFlagsChanged (fired only for
-// Control/Shift/Command/Option/CapsLock/Fn state changes), never on
-// kCGEventKeyDown, so a regular key (space, letters, ...) as part of the
-// combo is not something more token-parsing here could ever support.
-static CGEventFlags parse_hotkey(const char* str, bool* valid) {
+// Regular-key component of a hotkey= combo (e.g. the "space" in
+// "control+space") -- deliberately just space/a-z/0-9. Not arrows,
+// function keys, Tab, Escape, Enter, Delete: those already carry their
+// own vim-mode/editing meaning and this table has no way to disambiguate
+// "the user wants this as a global toggle everywhere" from "this key means
+// what it normally means right now."
+static const struct { const char* name; CGKeyCode code; } HOTKEY_KEY_TABLE[] = {
+  {"space", kVK_Space},
+  {"a", kVK_ANSI_A}, {"b", kVK_ANSI_B}, {"c", kVK_ANSI_C}, {"d", kVK_ANSI_D},
+  {"e", kVK_ANSI_E}, {"f", kVK_ANSI_F}, {"g", kVK_ANSI_G}, {"h", kVK_ANSI_H},
+  {"i", kVK_ANSI_I}, {"j", kVK_ANSI_J}, {"k", kVK_ANSI_K}, {"l", kVK_ANSI_L},
+  {"m", kVK_ANSI_M}, {"n", kVK_ANSI_N}, {"o", kVK_ANSI_O}, {"p", kVK_ANSI_P},
+  {"q", kVK_ANSI_Q}, {"r", kVK_ANSI_R}, {"s", kVK_ANSI_S}, {"t", kVK_ANSI_T},
+  {"u", kVK_ANSI_U}, {"v", kVK_ANSI_V}, {"w", kVK_ANSI_W}, {"x", kVK_ANSI_X},
+  {"y", kVK_ANSI_Y}, {"z", kVK_ANSI_Z},
+  {"0", kVK_ANSI_0}, {"1", kVK_ANSI_1}, {"2", kVK_ANSI_2}, {"3", kVK_ANSI_3},
+  {"4", kVK_ANSI_4}, {"5", kVK_ANSI_5}, {"6", kVK_ANSI_6}, {"7", kVK_ANSI_7},
+  {"8", kVK_ANSI_8}, {"9", kVK_ANSI_9},
+};
+#define HOTKEY_KEY_TABLE_COUNT (sizeof(HOTKEY_KEY_TABLE) / sizeof(HOTKEY_KEY_TABLE[0]))
+
+static bool lookup_hotkey_key(const char* token, CGKeyCode* out_code) {
+  for (size_t i = 0; i < HOTKEY_KEY_TABLE_COUNT; i++) {
+    if (strcmp(token, HOTKEY_KEY_TABLE[i].name) == 0) {
+      *out_code = HOTKEY_KEY_TABLE[i].code;
+      return true;
+    }
+  }
+  return false;
+}
+
+CGEventFlags parse_hotkey(const char* str, int64_t* out_keycode, bool* out_has_keycode, bool* valid) {
   CGEventFlags mask = 0;
+  *out_has_keycode = false;
+  *out_keycode = 0;
   *valid = true;
   char buf[128];
   snprintf(buf, sizeof(buf), "%s", str);
 
   char* token = strtok(buf, "+");
   while (token) {
+    CGKeyCode code;
     if (strcmp(token, "control") == 0) mask |= kCGEventFlagMaskControl;
     else if (strcmp(token, "shift") == 0) mask |= kCGEventFlagMaskShift;
     else if (strcmp(token, "command") == 0) mask |= kCGEventFlagMaskCommand;
     else if (strcmp(token, "option") == 0) mask |= kCGEventFlagMaskAlternate;
-    else *valid = false; // unrecognized token (e.g. "space") -- previously
-                          // silently dropped with no error, so a typo'd or
-                          // unsupported hotkey= value quietly turned into
-                          // whatever modifiers *did* match instead of
+    else if (lookup_hotkey_key(token, &code)) {
+      if (*out_has_keycode) *valid = false; // more than one regular key in the combo
+      *out_has_keycode = true;
+      *out_keycode = code;
+    }
+    else *valid = false; // unrecognized token -- previously silently
+                          // dropped with no error, quietly degrading to
+                          // whatever modifiers did match instead of
                           // telling the user anything was wrong.
     token = strtok(NULL, "+");
   }
+  if (*out_has_keycode && mask == 0) *valid = false; // regular key needs >=1 modifier
   return mask;
 }
 
@@ -116,6 +151,8 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
   // Defaults for fresh load, preserved values for reload
   vn_method new_method = is_reload ? vn->method : VN_METHOD_SIMPLETELEX;
   CGEventFlags new_hotkey = is_reload ? vn->hotkey_mask : (kCGEventFlagMaskControl | kCGEventFlagMaskShift);
+  int64_t new_hotkey_keycode = is_reload ? vn->hotkey_keycode : 0;
+  bool new_has_hotkey_keycode = is_reload ? vn->has_hotkey_keycode : false;
   bool new_debug = is_reload ? vn->debug : false;
   bool new_modern_style = is_reload ? vn->modern_style : true;
 
@@ -129,6 +166,8 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
     // documented default (control+shift).
     vn->method = new_method;
     vn->hotkey_mask = new_hotkey;
+    vn->hotkey_keycode = new_hotkey_keycode;
+    vn->has_hotkey_keycode = new_has_hotkey_keycode;
     vn->debug = new_debug;
     vn->modern_style = new_modern_style;
     return NULL;
@@ -172,9 +211,11 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
         error_count++;
       }
     } else if (strcmp(key, "hotkey") == 0) {
+      int64_t keycode;
+      bool has_keycode;
       bool hotkey_valid;
-      CGEventFlags mask = parse_hotkey(value, &hotkey_valid);
-      if (!hotkey_valid || (mask == 0 && strlen(value) > 0)) {
+      CGEventFlags mask = parse_hotkey(value, &keycode, &has_keycode, &hotkey_valid);
+      if (!hotkey_valid || (mask == 0 && !has_keycode && strlen(value) > 0)) {
         if (error_count < 3) {
           char err[128];
           snprintf(err, sizeof(err), "line %d: invalid hotkey '%s'\n", line_num, value);
@@ -183,6 +224,8 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
         error_count++;
       } else {
         new_hotkey = mask;
+        new_hotkey_keycode = keycode;
+        new_has_hotkey_keycode = has_keycode;
       }
     } else if (strcmp(key, "debug") == 0) {
       if (strcmp(value, "1") == 0 || strcmp(value, "on") == 0) new_debug = true;
@@ -220,6 +263,8 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
   // Apply successfully parsed values
   vn->method = new_method;
   vn->hotkey_mask = new_hotkey;
+  vn->hotkey_keycode = new_hotkey_keycode;
+  vn->has_hotkey_keycode = new_has_hotkey_keycode;
   vn->debug = new_debug;
   vn->modern_style = new_modern_style;
 

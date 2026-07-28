@@ -26,6 +26,8 @@ struct vn_input {
   vn_method method;
   bool modern_style;
   CGEventFlags hotkey_mask;
+  int64_t hotkey_keycode;   // meaningful only when has_hotkey_keycode is true
+  bool has_hotkey_keycode;  // false = hotkey_mask is a modifier-only chord (unchanged behavior)
   struct vn_override* overrides;
   uint32_t overrides_count;
 };
@@ -42,6 +44,7 @@ enum vn_flow vn_input_route(struct vn_input* vn, bool is_vn_blacklisted,
                             bool front_app_ignored, uint32_t cursor_mode);
 void vn_input_toggle(struct vn_input* vn);
 void vn_input_reload_config(struct vn_input* vn);
+CGEventFlags parse_hotkey(const char* str, int64_t* out_keycode, bool* out_has_keycode, bool* valid);
 
 // Appends a formatted line to ~/.config/univim/vn_debug.log, only when
 // `debug=1` is set in vn_config -- a no-op otherwise. Enable it to trace
