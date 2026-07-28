@@ -85,9 +85,10 @@ don't hit this.
 See `examples/svimrc_toggle` for a full worked example: cycling the word
 under the cursor through related values (`true`/`false`, `on`/`off`,
 `public`/`protected`/`private`, ...), [toggle.nvim](https://github.com/leblocks/toggle.nvim)-style.
+Save your config to `~/.config/univim/svimrc` for it to take effect.
 
-Also note: comments (`"`) in `svimrc` break the config (see Known Issues)
-— keep scripted `svimrc` content comment-free.
+Also note: comments (lines starting with `"`) in `svimrc` break the config (see Known Issues)
+— keep scripted `svimrc` content comment-free. Double-quoted string literals like `"\<Esc>"` are fine; the issue is specifically `"` used as a comment-leader, not `"` appearing in regular VimL code.
 
 ### Per-app correction tuning
 Some apps need a different delay or correction strategy than the defaults
