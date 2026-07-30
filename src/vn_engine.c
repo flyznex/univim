@@ -168,6 +168,20 @@ struct vn_engine_result vn_engine_process_key(unsigned int ch, bool shift, bool 
     word_history_apply(UnikeyBackspaces, UnikeyBuf, UnikeyBufChars);
   }
 
+  // Telex/VNI corrections never legitimately reach back past the start of
+  // the current word (confirmed: processing a long passage continuously
+  // produces byte-for-byte identical output to resetting between every
+  // word) -- so once libunikey reports we're at a fresh word boundary,
+  // word_history has nothing left worth keeping. Without this, a long
+  // enough continuous typing session (no arrow keys/Enter/mouse click/2s+
+  // idle to trigger vn_engine_reset()) eventually fills the fixed 256-byte
+  // word_history buffer; word_history_apply then silently truncates the
+  // next insert mid-UTF8-character, and bytes_to_char_count() misreads the
+  // corrupted tail on a later keystroke -- producing a too-large character
+  // backspace count that eats part of the previous word (reproduced: "cho"
+  // -> "chơ" -> "cờ" instead of "chờ", dropping the leading consonant).
+  if (UnikeyAtWordBeginning()) word_history_len = 0;
+
   struct vn_engine_result result = {
     .backspace_count = char_backspaces,
     .insert_text = UnikeyBuf,
@@ -193,6 +207,11 @@ struct vn_engine_result vn_engine_process_backspace(void) {
 
   int char_backspaces = bytes_to_char_count(UnikeyBackspaces);
   word_history_apply(UnikeyBackspaces, UnikeyBuf, UnikeyBufChars);
+
+  // Same word-boundary bound as vn_engine_process_key -- keeps the
+  // invariant "at word beginning implies empty word_history" true
+  // regardless of whether we arrived there by typing or backspacing.
+  if (UnikeyAtWordBeginning()) word_history_len = 0;
 
   struct vn_engine_result result = {
     .backspace_count = char_backspaces,
