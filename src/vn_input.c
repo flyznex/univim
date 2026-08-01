@@ -365,6 +365,7 @@ void vn_input_begin(struct vn_input* vn) {
     vn_debug_log("vn_input_begin: vn_engine_load_macros failed, path=%s", macros_path);
 
   statusbar_init();
+  statusbar_refresh(vn);
 }
 
 void vn_input_reload_config(struct vn_input* vn) {
@@ -390,13 +391,25 @@ void vim_status_label(bool enabled, bool vim_disabled, char* out, size_t n) {
   snprintf(out, n, "%s%s", enabled ? "VI" : "EN", vim_disabled ? "-" : "");
 }
 
+void statusbar_refresh(struct vn_input* vn) {
+  char label[8];
+  vim_status_label(vn->enabled, vn->vim_disabled, label, sizeof label);
+  statusbar_update(label);
+}
+
+void vim_disable_toggle(struct vn_input* vn) {
+  vn->vim_disabled = !vn->vim_disabled;
+  statusbar_refresh(vn);
+  toast_show(vn->vim_disabled ? "Vim off" : "Vim on");
+  vn_debug_log("vim_disable_toggle: vim_disabled now=%d", vn->vim_disabled);
+}
+
 void vn_input_toggle(struct vn_input* vn) {
   vn->enabled = !vn->enabled;
   vn_engine_reset();
   
-  const char* label = vn->enabled ? "VI" : "EN";
-  toast_show(label);
-  statusbar_update(label);
+  toast_show(vn->enabled ? "VI" : "EN");
+  statusbar_refresh(vn);
 
   struct env_vars env_vars;
   env_vars_init(&env_vars);
