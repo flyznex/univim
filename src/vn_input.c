@@ -7,6 +7,7 @@
 
 struct vn_input g_vn_input;
 char g_vn_debug_app_name[256] = "";
+bool g_input_source_is_ime = false; // updated by workspace.m on input-source changes
 
 bool vn_input_blacklisted(struct vn_input* vn, char* app, char* bundle_id) {
   return blacklist_contains(vn->blacklist, vn->blacklist_count, app, bundle_id);
@@ -28,8 +29,10 @@ void vn_input_lookup_override(struct vn_input* vn, char* app, char* bundle_id,
 }
 
 enum vn_flow vn_input_route(struct vn_input* vn, bool is_vn_blacklisted,
-                            bool front_app_ignored, uint32_t cursor_mode) {
+                            bool front_app_ignored, bool input_source_is_ime,
+                            uint32_t cursor_mode) {
   if (!vn->enabled || is_vn_blacklisted) return VN_FLOW_NONE;
+  if (input_source_is_ime) return VN_FLOW_NONE; // a composing system IME owns the keystroke
   if (front_app_ignored) return VN_FLOW_SYNTHETIC;
   if (cursor_mode & INSERT) return VN_FLOW_VIM_BUFFER;
   return VN_FLOW_NONE;

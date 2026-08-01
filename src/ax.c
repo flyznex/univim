@@ -300,6 +300,7 @@ CGEventRef ax_process_event(struct ax* ax, CGEventTapProxy proxy, CGEventRef eve
 
     enum vn_flow flow = vn_input_route(&g_vn_input, g_event_tap.vn_ignored,
                                        g_event_tap.front_app_ignored,
+                                       g_input_source_is_ime,
                                        ax->buffer.cursor.mode           );
     vn_debug_log("role=%u mode=%u flow=%d vn_enabled=%d vn_ignored=%d front_ignored=%d char=0x%x",
                  ax->role, ax->buffer.cursor.mode, flow, g_vn_input.enabled,
