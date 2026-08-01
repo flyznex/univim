@@ -50,6 +50,7 @@ set(SOURCES
     src/toast.m
     src/config_watcher.c
     src/codesign_selfheal.c
+    src/input_source.c
 )
 
 # Main executable
