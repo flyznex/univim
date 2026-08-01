@@ -3,6 +3,7 @@
 #include "event_tap.h"
 #include "vn_input.h"
 #include "input_source.h"
+#import <Carbon/Carbon.h> // kTISNotifySelectedKeyboardInputSourceChanged
 
 void workspace_begin(void **context) {
     workspace_context *ws_context = [workspace_context alloc];
