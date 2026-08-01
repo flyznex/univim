@@ -129,7 +129,12 @@ off, Vietnamese typing intact. No new routing code.
 
 ### `examples/vn_config` — documentation
 
-Add a commented example line:
+Add a commented example line. The value is fully user-editable — same
+`modifier[+modifier...][+key]` syntax as the existing `hotkey=` (any combo
+`parse_hotkey` accepts: control/shift/command/option + optional space/a-z/0-9).
+`control+option+v` is only the documented suggestion, not a hardcoded default;
+the line ships commented, so the feature is off until the user uncomments/edits
+it:
 
 ```
 # disable_vim_hotkey=control+option+v   # toggle vim mode off (IME stays on); shows EN-/VI-
