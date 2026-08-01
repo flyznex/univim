@@ -11,6 +11,7 @@
 # Temporarily disable vim buffer mode while keeping the IME on (e.g. when
 # running a real vim/terminal inside another app). Menubar shows EN-/VI- while
 # disabled. Same syntax as `hotkey`. No default -- uncomment to enable.
+# Bind it to a DIFFERENT combo than `hotkey` above, or both would fire at once.
 # disable_vim_hotkey=control+option+v
 
 # Tone-mark placement: 1/on = modern, 0/off = classic  (default: on)
