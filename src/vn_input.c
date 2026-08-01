@@ -426,7 +426,7 @@ void statusbar_refresh(struct vn_input* vn) {
 void vim_disable_toggle(struct vn_input* vn) {
   vn->vim_disabled = !vn->vim_disabled;
   statusbar_refresh(vn);
-  toast_show(vn->vim_disabled ? "Vim off" : "Vim on");
+  toast_show(vn->vim_disabled ? "Vim-" : "Vim+");
   vn_debug_log("vim_disable_toggle: vim_disabled now=%d", vn->vim_disabled);
 }
 
