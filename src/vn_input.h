@@ -51,7 +51,7 @@ enum vn_flow vn_input_route(struct vn_input* vn, bool is_vn_blacklisted,
                             bool front_app_ignored, bool input_source_is_ime,
                             uint32_t cursor_mode);
 // Cached "is the current system input source a composing IME?" flag.
-// Defined in workspace.m, updated on input-source-change notifications.
+// Defined in vn_input.c; written by workspace.m on input-source-change notifications.
 extern bool g_input_source_is_ime;
 void vn_input_toggle(struct vn_input* vn);
 void vn_input_reload_config(struct vn_input* vn);
