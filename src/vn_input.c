@@ -386,6 +386,10 @@ void vn_input_reload_config(struct vn_input* vn) {
   }
 }
 
+void vim_status_label(bool enabled, bool vim_disabled, char* out, size_t n) {
+  snprintf(out, n, "%s%s", enabled ? "VI" : "EN", vim_disabled ? "-" : "");
+}
+
 void vn_input_toggle(struct vn_input* vn) {
   vn->enabled = !vn->enabled;
   vn_engine_reset();

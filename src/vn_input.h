@@ -1,6 +1,7 @@
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <ApplicationServices/ApplicationServices.h>
 #include "vn_engine.h"
 
@@ -28,6 +29,10 @@ struct vn_input {
   CGEventFlags hotkey_mask;
   int64_t hotkey_keycode;   // meaningful only when has_hotkey_keycode is true
   bool has_hotkey_keycode;  // false = hotkey_mask is a modifier-only chord (unchanged behavior)
+  bool vim_disabled;                 // session-only; true = vim buffer processing off (IME unaffected)
+  CGEventFlags disable_hotkey_mask;  // 0 = no binding (feature inert)
+  int64_t disable_hotkey_keycode;    // meaningful only when has_disable_hotkey_keycode is true
+  bool has_disable_hotkey_keycode;   // false = disable_hotkey_mask is a modifier-only chord
   struct vn_override* overrides;
   uint32_t overrides_count;
 };
@@ -45,6 +50,9 @@ enum vn_flow vn_input_route(struct vn_input* vn, bool is_vn_blacklisted,
 void vn_input_toggle(struct vn_input* vn);
 void vn_input_reload_config(struct vn_input* vn);
 CGEventFlags parse_hotkey(const char* str, int64_t* out_keycode, bool* out_has_keycode, bool* valid);
+void vim_status_label(bool enabled, bool vim_disabled, char* out, size_t n);
+void statusbar_refresh(struct vn_input* vn);
+void vim_disable_toggle(struct vn_input* vn);
 
 // Appends a formatted line to ~/.config/univim/vn_debug.log, only when
 // `debug=1` is set in vn_config -- a no-op otherwise. Enable it to trace

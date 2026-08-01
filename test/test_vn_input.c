@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include "../src/vn_input.h"
 #include <Carbon/Carbon.h>
 
@@ -72,6 +73,20 @@ int main(void) {
     assert(!valid);
 
     printf("[parse_hotkey regular-key combos] OK\n");
+  }
+
+  // vim_status_label: 4 state combos (enabled x vim_disabled)
+  {
+    char label[8];
+    vim_status_label(false, false, label, sizeof label);
+    assert(strcmp(label, "EN") == 0);
+    vim_status_label(true, false, label, sizeof label);
+    assert(strcmp(label, "VI") == 0);
+    vim_status_label(false, true, label, sizeof label);
+    assert(strcmp(label, "EN-") == 0);
+    vim_status_label(true, true, label, sizeof label);
+    assert(strcmp(label, "VI-") == 0);
+    printf("[vim_status_label] OK\n");
   }
 
   printf("ALL TESTS PASSED\n");
