@@ -153,6 +153,9 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
   CGEventFlags new_hotkey = is_reload ? vn->hotkey_mask : (kCGEventFlagMaskControl | kCGEventFlagMaskShift);
   int64_t new_hotkey_keycode = is_reload ? vn->hotkey_keycode : 0;
   bool new_has_hotkey_keycode = is_reload ? vn->has_hotkey_keycode : false;
+  CGEventFlags new_disable_hotkey = is_reload ? vn->disable_hotkey_mask : 0;
+  int64_t new_disable_hotkey_keycode = is_reload ? vn->disable_hotkey_keycode : 0;
+  bool new_has_disable_hotkey_keycode = is_reload ? vn->has_disable_hotkey_keycode : false;
   bool new_debug = is_reload ? vn->debug : false;
   bool new_modern_style = is_reload ? vn->modern_style : true;
 
@@ -168,6 +171,9 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
     vn->hotkey_mask = new_hotkey;
     vn->hotkey_keycode = new_hotkey_keycode;
     vn->has_hotkey_keycode = new_has_hotkey_keycode;
+    vn->disable_hotkey_mask = new_disable_hotkey;
+    vn->disable_hotkey_keycode = new_disable_hotkey_keycode;
+    vn->has_disable_hotkey_keycode = new_has_disable_hotkey_keycode;
     vn->debug = new_debug;
     vn->modern_style = new_modern_style;
     return NULL;
@@ -227,6 +233,23 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
         new_hotkey_keycode = keycode;
         new_has_hotkey_keycode = has_keycode;
       }
+    } else if (strcmp(key, "disable_vim_hotkey") == 0) {
+      int64_t keycode;
+      bool has_keycode;
+      bool hotkey_valid;
+      CGEventFlags mask = parse_hotkey(value, &keycode, &has_keycode, &hotkey_valid);
+      if (!hotkey_valid || (mask == 0 && !has_keycode && strlen(value) > 0)) {
+        if (error_count < 3) {
+          char err[128];
+          snprintf(err, sizeof(err), "line %d: invalid disable_vim_hotkey '%s'\n", line_num, value);
+          strncat(errors, err, sizeof(errors) - strlen(errors) - 1);
+        }
+        error_count++;
+      } else {
+        new_disable_hotkey = mask;
+        new_disable_hotkey_keycode = keycode;
+        new_has_disable_hotkey_keycode = has_keycode;
+      }
     } else if (strcmp(key, "debug") == 0) {
       if (strcmp(value, "1") == 0 || strcmp(value, "on") == 0) new_debug = true;
       else if (strcmp(value, "0") == 0 || strcmp(value, "off") == 0) new_debug = false;
@@ -265,6 +288,9 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
   vn->hotkey_mask = new_hotkey;
   vn->hotkey_keycode = new_hotkey_keycode;
   vn->has_hotkey_keycode = new_has_hotkey_keycode;
+  vn->disable_hotkey_mask = new_disable_hotkey;
+  vn->disable_hotkey_keycode = new_disable_hotkey_keycode;
+  vn->has_disable_hotkey_keycode = new_has_disable_hotkey_keycode;
   vn->debug = new_debug;
   vn->modern_style = new_modern_style;
 

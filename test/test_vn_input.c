@@ -72,6 +72,13 @@ int main(void) {
     parse_hotkey("control+xyz", &keycode, &has_keycode, &valid);
     assert(!valid);
 
+    // disable_vim_hotkey accepts the same syntax (parsed by the same parse_hotkey)
+    mask = parse_hotkey("control+option+v", &keycode, &has_keycode, &valid);
+    assert(valid);
+    assert(mask == (kCGEventFlagMaskControl | kCGEventFlagMaskAlternate));
+    assert(has_keycode);
+    assert(keycode == kVK_ANSI_V);
+
     printf("[parse_hotkey regular-key combos] OK\n");
   }
 
