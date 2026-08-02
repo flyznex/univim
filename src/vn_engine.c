@@ -225,3 +225,17 @@ struct vn_engine_result vn_engine_process_backspace(void) {
   };
   return result;
 }
+
+struct vn_engine_result vn_engine_restore_key_strokes(void) {
+  UnikeyRestoreKeyStrokes();
+
+  int char_backspaces = bytes_to_char_count(UnikeyBackspaces);
+  word_history_apply(UnikeyBackspaces, UnikeyBuf, UnikeyBufChars);
+
+  struct vn_engine_result result = {
+    .backspace_count = char_backspaces,
+    .insert_text = UnikeyBuf,
+    .insert_len = UnikeyBufChars
+  };
+  return result;
+}
