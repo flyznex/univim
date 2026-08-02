@@ -471,3 +471,17 @@ Expected: builds `bin/univim` with no errors or warnings.
 git add src/ax.h src/ax.c
 git commit -m "feat: detect z-trigger restore in Flow B (ax.c)"
 ```
+
+---
+
+## Post-implementation note
+
+Task 1's review found that `check_restore`'s original 4-arg signature above
+(label, method, keys, expected) only asserted the reconstructed string, so a
+future regression that performs a real (non-no-op) restore whose net text
+happens to match would still pass. The shipped version (commit 2568cb9)
+added a 5th `expect_noop` bool parameter that asserts
+`backspace_count == 0 && insert_len == 0` directly on the raw
+`vn_engine_result` for the "hello"/"quiz" no-op cases, in addition to the
+string check. This doc's code blocks above still show the original 4-arg
+version — the shipped `test/test_vn_engine.c` is the authoritative version.
