@@ -64,14 +64,24 @@ static void check(const char* label, vn_method method, const char* keys, const c
 // the word reverts to its original literal keystrokes, or, for a word that
 // was never transformed, that restore is a true no-op. That no-op case is
 // exactly what lets the real caller fall back to typing the trigger key
-// literally instead of misfiring on words like "quiz".
-static void check_restore(const char* label, vn_method method, const char* keys, const char* expected) {
+// literally instead of misfiring on words like "quiz". expect_noop asserts
+// directly on the raw result (backspace_count == 0 && insert_len == 0)
+// rather than relying solely on the net string match, which a hypothetical
+// "backspace N, reinsert the same N chars" regression could still pass even
+// though it isn't the true no-op Task 3/4's dispatch logic depends on.
+static void check_restore(const char* label, vn_method method, const char* keys, const char* expected, bool expect_noop) {
   vn_engine_set_method(method);
   vn_engine_reset();
   char out[256];
   type_sequence(keys, out, sizeof(out));
   size_t len = strlen(out);
   struct vn_engine_result r = vn_engine_restore_key_strokes();
+  bool is_noop = (r.backspace_count == 0 && r.insert_len == 0);
+  if (expect_noop) {
+    printf("[%s] keys=\"%s\" backspace_count=%d insert_len=%d %s\n",
+           label, keys, r.backspace_count, r.insert_len, is_noop ? "OK" : "MISMATCH");
+    assert(is_noop);
+  }
   apply_correction(r, out, &len);
   printf("[%s] keys=\"%s\" after_restore=\"%s\" want=\"%s\" %s\n",
          label, keys, out, expected, strcmp(out, expected) == 0 ? "OK" : "MISMATCH");
@@ -147,10 +157,10 @@ int main(void) {
   // restoring a transformed word must revert it to the literal keystrokes,
   // and restoring an untransformed word must be a true no-op -- verified
   // against the real engine (values below are not guessed).
-  check_restore("restore reverts a transformed word", VN_METHOD_TELEX, "of", "of");
-  check_restore("restore is a no-op on an untransformed word", VN_METHOD_TELEX, "hello", "hello");
-  check_restore("restore reverts a word with a real tone mark", VN_METHOD_TELEX, "thaays", "thaays");
-  check_restore("restore is a no-op on a word that never triggers a tone", VN_METHOD_TELEX, "quiz", "quiz");
+  check_restore("restore reverts a transformed word", VN_METHOD_TELEX, "of", "of", false);
+  check_restore("restore is a no-op on an untransformed word", VN_METHOD_TELEX, "hello", "hello", true);
+  check_restore("restore reverts a word with a real tone mark", VN_METHOD_TELEX, "thaays", "thaays", false);
+  check_restore("restore is a no-op on a word that never triggers a tone", VN_METHOD_TELEX, "quiz", "quiz", true);
 
   // Macro shortcut expansion (vn_engine_load_macros): user-facing vn_macros
   // files are plain "key:text" lines with no header -- vn_engine_load_macros
