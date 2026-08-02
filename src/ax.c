@@ -326,10 +326,28 @@ CGEventRef ax_process_event(struct ax* ax, CGEventTapProxy proxy, CGEventRef eve
       return NULL;
 
     if (flow == VN_FLOW_VIM_BUFFER) {
-      struct vn_engine_result result = (keycode == kVK_Delete)
-        ? vn_engine_process_backspace()
-        : vn_engine_process_key(character, flags & FLAG_SHIFT,
-                                flags & kCGEventFlagMaskAlphaShift);
+      // Same z-trigger check as event_tap.c's Flow A (docs/superpowers/specs/
+      // 2026-08-02-restore-keystrokes-z-trigger-design.md). FLAG_COMMAND is
+      // already excluded earlier in this function (resets and returns), and
+      // the autorepeat guard just above this block already excludes
+      // repeats, so only Control/Option need excluding here.
+      bool is_restore_candidate = g_vn_input.has_restore_trigger_keycode
+        && keycode == g_vn_input.restore_trigger_keycode
+        && (flags & (FLAG_CONTROL | FLAG_ALTERNATE)) == 0;
+
+      struct vn_engine_result result;
+      if (is_restore_candidate) {
+        result = vn_engine_restore_key_strokes();
+        if (result.backspace_count == 0 && result.insert_len == 0) {
+          result = vn_engine_process_key(character, flags & FLAG_SHIFT,
+                                          flags & kCGEventFlagMaskAlphaShift);
+        }
+      } else {
+        result = (keycode == kVK_Delete)
+          ? vn_engine_process_backspace()
+          : vn_engine_process_key(character, flags & FLAG_SHIFT,
+                                  flags & kCGEventFlagMaskAlphaShift);
+      }
 
       if (result.backspace_count > 0 || result.insert_len > 0) {
         char* text = NULL;
