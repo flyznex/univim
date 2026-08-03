@@ -283,6 +283,10 @@ static CGEventRef key_handler(CGEventTapProxy proxy, CGEventType type,
         vn_input_toggle(&g_vn_input);
         vn_debug_log("vn_input_toggle fired, enabled now=%d", g_vn_input.enabled);
       }
+      if (!g_vn_input.has_disable_hotkey_keycode && g_vn_input.disable_hotkey_mask
+          && (flags & VN_HOTKEY_RELEVANT_FLAGS) == g_vn_input.disable_hotkey_mask) {
+        vim_disable_toggle(&g_vn_input);
+      }
     } break;
     case kCGEventLeftMouseDown: {
       vn_debug_log("kCGEventLeftMouseDown: vn_engine_reset");
@@ -312,8 +316,19 @@ static CGEventRef key_handler(CGEventTapProxy proxy, CGEventType type,
         }
       }
 
+      if (g_vn_input.has_disable_hotkey_keycode) {
+        int64_t d_keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+        bool d_is_repeat = CGEventGetIntegerValueField(event, kCGKeyboardEventAutorepeat);
+        CGEventFlags d_flags = CGEventGetFlags(event);
+        if (!d_is_repeat && d_keycode == g_vn_input.disable_hotkey_keycode
+            && (d_flags & VN_HOTKEY_RELEVANT_FLAGS) == g_vn_input.disable_hotkey_mask) {
+          vim_disable_toggle(&g_vn_input);
+          return NULL; // consume so the key isn't typed
+        }
+      }
+
       struct event_tap* event_tap = (struct event_tap*) reference;
-      if (event_tap->front_app_ignored) {
+      if (event_tap->front_app_ignored || g_vn_input.vim_disabled) {
         if (g_ax.selected_element && g_ax.role) {
           ax_clear(&g_ax);
         }

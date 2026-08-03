@@ -153,6 +153,9 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
   CGEventFlags new_hotkey = is_reload ? vn->hotkey_mask : (kCGEventFlagMaskControl | kCGEventFlagMaskShift);
   int64_t new_hotkey_keycode = is_reload ? vn->hotkey_keycode : 0;
   bool new_has_hotkey_keycode = is_reload ? vn->has_hotkey_keycode : false;
+  CGEventFlags new_disable_hotkey = is_reload ? vn->disable_hotkey_mask : 0;
+  int64_t new_disable_hotkey_keycode = is_reload ? vn->disable_hotkey_keycode : 0;
+  bool new_has_disable_hotkey_keycode = is_reload ? vn->has_disable_hotkey_keycode : false;
   int64_t new_restore_trigger_keycode = is_reload ? vn->restore_trigger_keycode : 0;
   bool new_has_restore_trigger_keycode = is_reload ? vn->has_restore_trigger_keycode : false;
   bool new_debug = is_reload ? vn->debug : false;
@@ -170,6 +173,9 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
     vn->hotkey_mask = new_hotkey;
     vn->hotkey_keycode = new_hotkey_keycode;
     vn->has_hotkey_keycode = new_has_hotkey_keycode;
+    vn->disable_hotkey_mask = new_disable_hotkey;
+    vn->disable_hotkey_keycode = new_disable_hotkey_keycode;
+    vn->has_disable_hotkey_keycode = new_has_disable_hotkey_keycode;
     vn->restore_trigger_keycode = new_restore_trigger_keycode;
     vn->has_restore_trigger_keycode = new_has_restore_trigger_keycode;
     vn->debug = new_debug;
@@ -231,6 +237,23 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
         new_hotkey_keycode = keycode;
         new_has_hotkey_keycode = has_keycode;
       }
+    } else if (strcmp(key, "disable_vim_hotkey") == 0) {
+      int64_t keycode;
+      bool has_keycode;
+      bool hotkey_valid;
+      CGEventFlags mask = parse_hotkey(value, &keycode, &has_keycode, &hotkey_valid);
+      if (!hotkey_valid || (mask == 0 && !has_keycode && strlen(value) > 0)) {
+        if (error_count < 3) {
+          char err[128];
+          snprintf(err, sizeof(err), "line %d: invalid disable_vim_hotkey '%s'\n", line_num, value);
+          strncat(errors, err, sizeof(errors) - strlen(errors) - 1);
+        }
+        error_count++;
+      } else {
+        new_disable_hotkey = mask;
+        new_disable_hotkey_keycode = keycode;
+        new_has_disable_hotkey_keycode = has_keycode;
+      }
     } else if (strcmp(key, "debug") == 0) {
       if (strcmp(value, "1") == 0 || strcmp(value, "on") == 0) new_debug = true;
       else if (strcmp(value, "0") == 0 || strcmp(value, "off") == 0) new_debug = false;
@@ -282,6 +305,9 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
   vn->hotkey_mask = new_hotkey;
   vn->hotkey_keycode = new_hotkey_keycode;
   vn->has_hotkey_keycode = new_has_hotkey_keycode;
+  vn->disable_hotkey_mask = new_disable_hotkey;
+  vn->disable_hotkey_keycode = new_disable_hotkey_keycode;
+  vn->has_disable_hotkey_keycode = new_has_disable_hotkey_keycode;
   vn->restore_trigger_keycode = new_restore_trigger_keycode;
   vn->has_restore_trigger_keycode = new_has_restore_trigger_keycode;
   vn->debug = new_debug;
@@ -384,6 +410,7 @@ void vn_input_begin(struct vn_input* vn) {
     vn_debug_log("vn_input_begin: vn_engine_load_macros failed, path=%s", macros_path);
 
   statusbar_init();
+  statusbar_refresh(vn);
 }
 
 void vn_input_reload_config(struct vn_input* vn) {
@@ -405,13 +432,29 @@ void vn_input_reload_config(struct vn_input* vn) {
   }
 }
 
+void vim_status_label(bool enabled, bool vim_disabled, char* out, size_t n) {
+  snprintf(out, n, "%s%s", enabled ? "VI" : "EN", vim_disabled ? "-" : "");
+}
+
+void statusbar_refresh(struct vn_input* vn) {
+  char label[8];
+  vim_status_label(vn->enabled, vn->vim_disabled, label, sizeof label);
+  statusbar_update(label);
+}
+
+void vim_disable_toggle(struct vn_input* vn) {
+  vn->vim_disabled = !vn->vim_disabled;
+  statusbar_refresh(vn);
+  toast_show(vn->vim_disabled ? "Vim-" : "Vim+");
+  vn_debug_log("vim_disable_toggle: vim_disabled now=%d", vn->vim_disabled);
+}
+
 void vn_input_toggle(struct vn_input* vn) {
   vn->enabled = !vn->enabled;
   vn_engine_reset();
   
-  const char* label = vn->enabled ? "VI" : "EN";
-  toast_show(label);
-  statusbar_update(label);
+  toast_show(vn->enabled ? "VI" : "EN");
+  statusbar_refresh(vn);
 
   struct env_vars env_vars;
   env_vars_init(&env_vars);

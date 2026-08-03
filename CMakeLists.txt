@@ -49,6 +49,7 @@ set(SOURCES
     src/vn_input.c
     src/toast.m
     src/config_watcher.c
+    src/codesign_selfheal.c
 )
 
 # Main executable
