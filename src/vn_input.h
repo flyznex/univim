@@ -33,6 +33,8 @@ struct vn_input {
   CGEventFlags disable_hotkey_mask;  // 0 = no binding (feature inert)
   int64_t disable_hotkey_keycode;    // meaningful only when has_disable_hotkey_keycode is true
   bool has_disable_hotkey_keycode;   // false = disable_hotkey_mask is a modifier-only chord
+  int64_t restore_trigger_keycode;  // meaningful only when has_restore_trigger_keycode is true
+  bool has_restore_trigger_keycode; // false = feature disabled (no restore_trigger_key= line)
   struct vn_override* overrides;
   uint32_t overrides_count;
 };

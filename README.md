@@ -41,6 +41,9 @@ Toggle it on/off with a hotkey (default `control+shift`). Configure it via
 ```
 method=simpletelex  # telex, simpletelex (default), or vni
 hotkey=control+shift
+restore_trigger_key=z  # opt-in; typing z right after a word reverts it to
+                        # the literal keys typed, if libunikey actually
+                        # transformed it -- otherwise z types normally
 debug=1             # logs routing/correction decisions to ~/.config/univim/vn_debug.log
 modern_style=1      # 1/on (default, e.g. "hoà") or 0/off (old style, e.g. "hòa")
 ```
@@ -50,6 +53,16 @@ or a single digit `0`-`9` -- e.g. `hotkey=control+space` or
 `hotkey=command+option+j`. A regular key always needs at least one
 modifier alongside it (a bare `hotkey=space` would swallow every Space
 keystroke app-wide, so it's rejected as invalid instead).
+
+`restore_trigger_key=` is disabled unless set (no default) — a single
+regular key (same table as `hotkey=`'s regular-key component: `space`,
+`a`-`z`, `0`-`9`), no modifier. `z` is the only recommended value: it's the
+one letter that never appears in real Vietnamese text, so an unmodified
+press of it only ever reverts a word libunikey actually transformed (e.g.
+"of" → "ò", then `z` → "of") and otherwise types out literally (e.g.
+"quiz", "jazz" type unchanged, since neither ever triggers a transformation
+to revert). Cmd/Ctrl/Option held alongside the key (e.g. Cmd+Z / Ctrl+Z
+undo) is never treated as this trigger.
 
 Some combos may already be claimed by macOS or another app before the
 keystroke ever reaches UniVim -- e.g. `control+space` is macOS's own

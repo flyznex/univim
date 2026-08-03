@@ -211,11 +211,33 @@ CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventTapProxy pro
   bool is_repeat = CGEventGetIntegerValueField(event, kCGKeyboardEventAutorepeat);
   if (is_repeat && keycode != kVK_Delete) return NULL;
 
-  struct vn_engine_result result = (keycode == kVK_Delete)
-    ? vn_engine_process_backspace()
-    : vn_engine_process_key(character,
-                             flags & kCGEventFlagMaskShift,
-                             flags & kCGEventFlagMaskAlphaShift);
+  // A candidate z-trigger keystroke (docs/superpowers/specs/2026-08-02-
+  // restore-keystrokes-z-trigger-design.md): only fires with no Control/
+  // Option held (Command already returned early above at the
+  // kCGEventFlagMaskCommand check; Shift/CapsLock stay allowed so
+  // Shift+trigger-key also works). is_repeat is already excluded by the
+  // autorepeat guard just above this block. Always attempts restore first
+  // and only commits to it when that's not a no-op -- a no-op means the
+  // current word was never transformed, so the keystroke falls through to
+  // ordinary key processing instead (e.g. "quiz" types out literally).
+  bool is_restore_candidate = g_vn_input.has_restore_trigger_keycode
+    && keycode == g_vn_input.restore_trigger_keycode
+    && (flags & (kCGEventFlagMaskControl | kCGEventFlagMaskAlternate)) == 0;
+
+  struct vn_engine_result result;
+  if (is_restore_candidate) {
+    result = vn_engine_restore_key_strokes();
+    if (result.backspace_count == 0 && result.insert_len == 0) {
+      result = vn_engine_process_key(character, flags & kCGEventFlagMaskShift,
+                                      flags & kCGEventFlagMaskAlphaShift);
+    }
+  } else {
+    result = (keycode == kVK_Delete)
+      ? vn_engine_process_backspace()
+      : vn_engine_process_key(character,
+                               flags & kCGEventFlagMaskShift,
+                               flags & kCGEventFlagMaskAlphaShift);
+  }
 
   vn_debug_log("vn_synthetic_process: char=0x%x keycode=%lld backspaces=%d insert_len=%d",
               character, keycode, result.backspace_count, result.insert_len);

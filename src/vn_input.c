@@ -156,6 +156,8 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
   CGEventFlags new_disable_hotkey = is_reload ? vn->disable_hotkey_mask : 0;
   int64_t new_disable_hotkey_keycode = is_reload ? vn->disable_hotkey_keycode : 0;
   bool new_has_disable_hotkey_keycode = is_reload ? vn->has_disable_hotkey_keycode : false;
+  int64_t new_restore_trigger_keycode = is_reload ? vn->restore_trigger_keycode : 0;
+  bool new_has_restore_trigger_keycode = is_reload ? vn->has_restore_trigger_keycode : false;
   bool new_debug = is_reload ? vn->debug : false;
   bool new_modern_style = is_reload ? vn->modern_style : true;
 
@@ -174,6 +176,8 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
     vn->disable_hotkey_mask = new_disable_hotkey;
     vn->disable_hotkey_keycode = new_disable_hotkey_keycode;
     vn->has_disable_hotkey_keycode = new_has_disable_hotkey_keycode;
+    vn->restore_trigger_keycode = new_restore_trigger_keycode;
+    vn->has_restore_trigger_keycode = new_has_restore_trigger_keycode;
     vn->debug = new_debug;
     vn->modern_style = new_modern_style;
     return NULL;
@@ -272,6 +276,19 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
         }
         error_count++;
       }
+    } else if (strcmp(key, "restore_trigger_key") == 0) {
+      CGKeyCode code;
+      if (!lookup_hotkey_key(value, &code)) {
+        if (error_count < 3) {
+          char err[128];
+          snprintf(err, sizeof(err), "line %d: invalid restore_trigger_key '%s'\n", line_num, value);
+          strncat(errors, err, sizeof(errors) - strlen(errors) - 1);
+        }
+        error_count++;
+      } else {
+        new_restore_trigger_keycode = code;
+        new_has_restore_trigger_keycode = true;
+      }
     } else {
       if (error_count < 3) {
         char err[128];
@@ -291,6 +308,8 @@ static char* vn_config_load(struct vn_input* vn, bool is_reload) {
   vn->disable_hotkey_mask = new_disable_hotkey;
   vn->disable_hotkey_keycode = new_disable_hotkey_keycode;
   vn->has_disable_hotkey_keycode = new_has_disable_hotkey_keycode;
+  vn->restore_trigger_keycode = new_restore_trigger_keycode;
+  vn->has_restore_trigger_keycode = new_has_restore_trigger_keycode;
   vn->debug = new_debug;
   vn->modern_style = new_modern_style;
 

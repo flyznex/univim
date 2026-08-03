@@ -3,6 +3,32 @@
 #include <string.h>
 #include "../src/vn_engine.h"
 
+// Applies a vn_engine_result's backspace/insert onto a plain-C-string
+// oracle buffer -- shared by type_sequence (below) and the restore tests,
+// since both need the exact same "N character-backspaces, then insert N
+// bytes" logic that the real integration points (event_tap.c/ax.c) apply
+// incrementally instead.
+static void apply_correction(struct vn_engine_result r, char* out, size_t* len) {
+  if (r.backspace_count > 0) {
+    // backspace_count is a character count (vn_engine.c converts
+    // libunikey's raw byte count into this via its own tracked word
+    // history) -- remove that many trailing *characters*, which may span
+    // more than that many bytes, by skipping UTF-8 continuation bytes.
+    int remaining = r.backspace_count;
+    while (remaining > 0 && *len > 0) {
+      (*len)--;
+      while (*len > 0 && (out[*len] & 0xC0) == 0x80) (*len)--;
+      remaining--;
+    }
+    out[*len] = '\0';
+  }
+  if (r.insert_len > 0) {
+    memcpy(out + *len, r.insert_text, r.insert_len);
+    *len += r.insert_len;
+    out[*len] = '\0';
+  }
+}
+
 // Feeds a sequence of ASCII keystrokes through the engine and returns the
 // fully composed UTF-8 result as a plain C string (test-only helper — the
 // real integration points apply backspace_count/insert_text incrementally
@@ -13,24 +39,8 @@ static void type_sequence(const char* keys, char* out, size_t out_size) {
   out[0] = '\0';
   for (const char* k = keys; *k; k++) {
     struct vn_engine_result r = vn_engine_process_key((unsigned char) *k, false, false);
-    if (r.backspace_count > 0) {
-      // backspace_count is a character count (vn_engine.c converts
-      // libunikey's raw byte count into this via its own tracked word
-      // history) — remove that many trailing *characters*, which may span
-      // more than that many bytes, by skipping UTF-8 continuation bytes.
-      int remaining = r.backspace_count;
-      while (remaining > 0 && len > 0) {
-        len--;
-        while (len > 0 && (out[len] & 0xC0) == 0x80) len--;
-        remaining--;
-      }
-      out[len] = '\0';
-    }
-    if (r.insert_len > 0) {
-      memcpy(out + len, r.insert_text, r.insert_len);
-      len += r.insert_len;
-      out[len] = '\0';
-    } else if (r.backspace_count == 0) {
+    apply_correction(r, out, &len);
+    if (r.insert_len == 0 && r.backspace_count == 0) {
       // no correction needed — the OS just echoes the original keystroke
       out[len++] = *k;
       out[len] = '\0';
@@ -45,6 +55,35 @@ static void check(const char* label, vn_method method, const char* keys, const c
   char out[256];
   type_sequence(keys, out, sizeof(out));
   printf("[%s] keys=\"%s\" got=\"%s\" want=\"%s\" %s\n",
+         label, keys, out, expected, strcmp(out, expected) == 0 ? "OK" : "MISMATCH");
+  assert(strcmp(out, expected) == 0);
+}
+
+// Types `keys`, then triggers vn_engine_restore_key_strokes() and applies
+// its result the same way a real caller (event_tap.c/ax.c) would — checks
+// the word reverts to its original literal keystrokes, or, for a word that
+// was never transformed, that restore is a true no-op. That no-op case is
+// exactly what lets the real caller fall back to typing the trigger key
+// literally instead of misfiring on words like "quiz". expect_noop asserts
+// directly on the raw result (backspace_count == 0 && insert_len == 0)
+// rather than relying solely on the net string match, which a hypothetical
+// "backspace N, reinsert the same N chars" regression could still pass even
+// though it isn't the true no-op Task 3/4's dispatch logic depends on.
+static void check_restore(const char* label, vn_method method, const char* keys, const char* expected, bool expect_noop) {
+  vn_engine_set_method(method);
+  vn_engine_reset();
+  char out[256];
+  type_sequence(keys, out, sizeof(out));
+  size_t len = strlen(out);
+  struct vn_engine_result r = vn_engine_restore_key_strokes();
+  bool is_noop = (r.backspace_count == 0 && r.insert_len == 0);
+  if (expect_noop) {
+    printf("[%s] keys=\"%s\" backspace_count=%d insert_len=%d %s\n",
+           label, keys, r.backspace_count, r.insert_len, is_noop ? "OK" : "MISMATCH");
+    assert(is_noop);
+  }
+  apply_correction(r, out, &len);
+  printf("[%s] keys=\"%s\" after_restore=\"%s\" want=\"%s\" %s\n",
          label, keys, out, expected, strcmp(out, expected) == 0 ? "OK" : "MISMATCH");
   assert(strcmp(out, expected) == 0);
 }
@@ -113,6 +152,15 @@ int main(void) {
            (r2.backspace_count == 0 && r2.insert_len == 0) ? "OK" : "MISMATCH");
     assert(r2.backspace_count == 0 && r2.insert_len == 0); // "s" passes through raw too, not "á"
   }
+
+  // z-trigger design (docs/superpowers/specs/2026-08-02-restore-keystrokes-z-trigger-design.md):
+  // restoring a transformed word must revert it to the literal keystrokes,
+  // and restoring an untransformed word must be a true no-op -- verified
+  // against the real engine (values below are not guessed).
+  check_restore("restore reverts a transformed word", VN_METHOD_TELEX, "of", "of", false);
+  check_restore("restore is a no-op on an untransformed word", VN_METHOD_TELEX, "hello", "hello", true);
+  check_restore("restore reverts a word with a real tone mark", VN_METHOD_TELEX, "thaays", "thaays", false);
+  check_restore("restore is a no-op on a word that never triggers a tone", VN_METHOD_TELEX, "quiz", "quiz", true);
 
   // Macro shortcut expansion (vn_engine_load_macros): user-facing vn_macros
   // files are plain "key:text" lines with no header -- vn_engine_load_macros

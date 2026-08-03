@@ -21,3 +21,4 @@ void vn_engine_reset(void);
 bool vn_engine_load_macros(const char* path);
 struct vn_engine_result vn_engine_process_key(unsigned int ch, bool shift, bool capslock);
 struct vn_engine_result vn_engine_process_backspace(void);
+struct vn_engine_result vn_engine_restore_key_strokes(void);
