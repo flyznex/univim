@@ -48,7 +48,11 @@ struct vn_override_list load_vn_overrides(const char* path);
 void vn_input_lookup_override(struct vn_input* vn, char* app, char* bundle_id,
                               int* out_delay_us, enum vn_correction_strategy* out_strategy);
 enum vn_flow vn_input_route(struct vn_input* vn, bool is_vn_blacklisted,
-                            bool front_app_ignored, uint32_t cursor_mode);
+                            bool front_app_ignored, bool input_source_is_ime,
+                            uint32_t cursor_mode);
+// Cached "is the current system input source a composing IME?" flag.
+// Defined in vn_input.c; written by workspace.m on input-source-change notifications.
+extern bool g_input_source_is_ime;
 void vn_input_toggle(struct vn_input* vn);
 void vn_input_reload_config(struct vn_input* vn);
 CGEventFlags parse_hotkey(const char* str, int64_t* out_keycode, bool* out_has_keycode, bool* valid);

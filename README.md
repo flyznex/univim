@@ -32,6 +32,27 @@ handled however you like -- e.g. piping the command line output into a
 (!): Accessible means, that the input field needs to conform to the accessibility
      standards for text input fields, else there is nothing UniVim can do.
 
+## Temporarily disabling vim mode
+Sometimes you want the Vietnamese IME to stay on but vim-mode to get out of
+the way -- e.g. when a real vim or terminal is running *inside* another
+(accessible) app, where UniVim's buffer sync fights the app's own editing.
+Bind `disable_vim_hotkey=` in `~/.config/univim/vn_config` to a hotkey that
+toggles vim buffer processing off and back on, without touching the IME:
+```
+disable_vim_hotkey=control+option+v
+```
+`disable_vim_hotkey=` has no default -- the feature stays inert until you set
+it. It takes the exact same syntax as `hotkey=` above (`+`-joined
+`control`/`shift`/`command`/`option`, optionally plus one regular key). Bind
+it to a **different** combo than `hotkey=`, or both toggles would fire on the
+same keystroke.
+
+While vim mode is disabled the state is shown in two places: a `Vim-` toast
+on toggle-off (`Vim+` on toggle-on), and a trailing `-` on the menubar label
+(`VI-` / `EN-`). The toggle is session-only -- it resets to enabled when
+UniVim restarts, and is never written to disk. The Vietnamese IME is
+completely unaffected: it keeps composing while vim mode is off.
+
 ## Vietnamese Input (Telex/VNI)
 UniVim also includes a system-wide Vietnamese input method (Telex and VNI),
 independent of the vim-mode feature above.
@@ -81,6 +102,29 @@ switch. Set `modern_style=0` to keep the old-style output you're used to.
 
 `~/.config/univim/vn_blacklist` excludes apps from Vietnamese input entirely
 (same one-app-or-bundle-id-per-line format as `blacklist` above).
+
+### Coexisting with other system IMEs
+If you also use a composing system input method (Korean, Japanese, Chinese,
+...), UniVim now steps aside automatically while that IME is the active
+keyboard input source, so its keystrokes reach the IME untouched instead of
+being double-processed. No configuration is needed -- it's on by default and
+requires no entry in `vn_blacklist`.
+
+The rule is deliberately conservative: UniVim only stays active for a
+confirmed plain keyboard *layout* (US, AZERTY, a Vietnamese layout, ...).
+Anything that looks like a composing IME -- or any input source it can't
+positively identify as a layout -- suppresses Vietnamese input for the
+duration, on the safe assumption the IME owns the keystroke. Switching input
+source is detected the moment it happens (via the system input-source-changed
+notification), and any half-composed Vietnamese word is reset on the switch
+so nothing leaks across it. Switch back to a plain layout and Vietnamese
+input resumes on the next keystroke.
+
+Note this keys off the *input source*, not the app: a Vietnamese *layout*
+keeps UniVim active, but selecting a third-party Vietnamese *IME* as your
+input source would also read as "a composing IME owns the keystroke" and
+suppress UniVim -- which is the intended behavior, since you'd be using that
+IME instead.
 
 ### Text-shortcut expansion ("gõ tắt")
 Define typing shortcuts that expand automatically, e.g. `sdt` → `số điện thoại`,

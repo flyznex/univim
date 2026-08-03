@@ -146,7 +146,8 @@ CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventTapProxy pro
   // cursor_mode is irrelevant here: vn_input_route short-circuits on
   // front_app_ignored (always true on this call path) before ever looking
   // at it, so 0 is a safe placeholder value, not a guess.
-  enum vn_flow flow = vn_input_route(&g_vn_input, event_tap->vn_ignored, true, 0);
+  enum vn_flow flow = vn_input_route(&g_vn_input, event_tap->vn_ignored, true,
+                                     g_input_source_is_ime, 0);
   vn_debug_log("vn_synthetic_process: flow=%d vn_enabled=%d vn_ignored=%d",
               flow, g_vn_input.enabled, event_tap->vn_ignored);
   if (flow != VN_FLOW_SYNTHETIC) return event;

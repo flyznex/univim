@@ -17,23 +17,29 @@ int main(void) {
 
   // VN disabled entirely -> never routes, regardless of everything else.
   struct vn_input disabled = { .enabled = false };
-  assert(vn_input_route(&disabled, false, true, INSERT) == VN_FLOW_NONE);
-  assert(vn_input_route(&disabled, false, false, INSERT) == VN_FLOW_NONE);
+  assert(vn_input_route(&disabled, false, true, false, INSERT) == VN_FLOW_NONE);
+  assert(vn_input_route(&disabled, false, false, false, INSERT) == VN_FLOW_NONE);
 
   // App is VN-blacklisted -> never routes.
-  assert(vn_input_route(&vn, true, true, INSERT) == VN_FLOW_NONE);
-  assert(vn_input_route(&vn, true, false, INSERT) == VN_FLOW_NONE);
+  assert(vn_input_route(&vn, true, true, false, INSERT) == VN_FLOW_NONE);
+  assert(vn_input_route(&vn, true, false, false, INSERT) == VN_FLOW_NONE);
+
+  // A composing system IME is active -> never routes, regardless of everything
+  // else once enabled+not-blacklisted passes (the IME guard dominates).
+  assert(vn_input_route(&vn, false, true, true, INSERT) == VN_FLOW_NONE);
+  assert(vn_input_route(&vn, false, false, true, INSERT) == VN_FLOW_NONE);
+  assert(vn_input_route(&vn, false, false, true, NORMAL) == VN_FLOW_NONE);
 
   // vim-mode blacklisted for this app (front_app_ignored) -> synthetic flow,
   // regardless of cursor mode (vim isn't tracking mode for this app at all).
-  assert(vn_input_route(&vn, false, true, NORMAL) == VN_FLOW_SYNTHETIC);
-  assert(vn_input_route(&vn, false, true, INSERT) == VN_FLOW_SYNTHETIC);
+  assert(vn_input_route(&vn, false, true, false, NORMAL) == VN_FLOW_SYNTHETIC);
+  assert(vn_input_route(&vn, false, true, false, INSERT) == VN_FLOW_SYNTHETIC);
 
   // vim-mode active for this app -> only INSERT routes, to the vim buffer.
-  assert(vn_input_route(&vn, false, false, INSERT) == VN_FLOW_VIM_BUFFER);
-  assert(vn_input_route(&vn, false, false, NORMAL) == VN_FLOW_NONE);
-  assert(vn_input_route(&vn, false, false, VISUAL) == VN_FLOW_NONE);
-  assert(vn_input_route(&vn, false, false, CMDLINE) == VN_FLOW_NONE);
+  assert(vn_input_route(&vn, false, false, false, INSERT) == VN_FLOW_VIM_BUFFER);
+  assert(vn_input_route(&vn, false, false, false, NORMAL) == VN_FLOW_NONE);
+  assert(vn_input_route(&vn, false, false, false, VISUAL) == VN_FLOW_NONE);
+  assert(vn_input_route(&vn, false, false, false, CMDLINE) == VN_FLOW_NONE);
 
   // parse_hotkey: modifier+regular-key combos (space/a-z/0-9), additive to
   // the existing modifier-only chord support above.
