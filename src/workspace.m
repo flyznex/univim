@@ -2,6 +2,8 @@
 #include "buffer.h"
 #include "event_tap.h"
 #include "vn_input.h"
+#include "input_source.h"
+#import <Carbon/Carbon.h> // kTISNotifySelectedKeyboardInputSourceChanged
 
 void workspace_begin(void **context) {
     workspace_context *ws_context = [workspace_context alloc];
@@ -17,6 +19,19 @@ void workspace_begin(void **context) {
                 selector:@selector(appSwitched:)
                 name:NSWorkspaceDidActivateApplicationNotification
                 object:nil];
+
+        // Input-source changes are event-driven (no polling): the system posts
+        // this distributed notification whenever the selected keyboard input
+        // source changes -- including layout switches that happen without an
+        // app switch. The callback recomputes the cached IME flag.
+        [[NSDistributedNotificationCenter defaultCenter] addObserver:self
+                selector:@selector(inputSourceChanged:)
+                name:(NSString*)kTISNotifySelectedKeyboardInputSourceChanged
+                object:nil];
+
+        // Compute once for whatever source is already active at startup, before
+        // any switch notification arrives.
+        g_input_source_is_ime = input_source_is_composing_ime();
 
         // The notification above only fires on a *future* app switch -- the
         // app already frontmost when svim starts (e.g. right after a deploy
@@ -71,6 +86,14 @@ void workspace_begin(void **context) {
     vn_debug_log("appSwitched: vn_engine_reset (app=%s)", name ? name : "?");
     vn_engine_reset();
     ax_front_app_changed(&g_ax, pid);
+}
+
+- (void)inputSourceChanged:(NSNotification *)notification {
+    g_input_source_is_ime = input_source_is_composing_ime();
+    // A source switch breaks word context; drop any half-composed Vietnamese
+    // word so it doesn't leak across the switch (mirrors appSwitched's reset).
+    vn_engine_reset();
+    vn_debug_log("inputSourceChanged: g_input_source_is_ime=%d", g_input_source_is_ime);
 }
 
 @end
