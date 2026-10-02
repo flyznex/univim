@@ -2,6 +2,8 @@
 #include "helpers.h"
 #include "vn_input.h"
 #include <Carbon/Carbon.h> // kVK_Delete
+#include <libproc.h>
+#include <string.h>
 
 #define VN_SYNTH_TAG 0x564E5359 // 'VNSY'
 #define VN_HOTKEY_RELEVANT_FLAGS (kCGEventFlagMaskControl | kCGEventFlagMaskShift | kCGEventFlagMaskCommand | kCGEventFlagMaskAlternate)
@@ -21,7 +23,13 @@ bool event_tap_check_blacklist(struct event_tap* event_tap,
 // ordered ahead of whatever the OS delivers next, matching Gõ Nhanh's
 // `.syncProxy` strategy. Re-entrant synthetic events coming back through
 // key_handler are already short-circuited by the VN_SYNTH_TAG check there.
+static pid_t g_event_target_pid;
+
 static void vn_post_event(CGEventTapProxy proxy, CGEventRef event) {
+  if (g_event_target_pid > 0 && g_event_target_pid != g_event_tap.front_pid) {
+    CGEventPostToPid(g_event_target_pid, event);
+    return;
+  }
   CGEventTapPostEvent(proxy, event);
 }
 
@@ -255,12 +263,8 @@ CGEventRef vn_synthetic_process(struct event_tap* event_tap, CGEventTapProxy pro
   return NULL;
 }
 
-static CGEventRef key_handler(CGEventTapProxy proxy, CGEventType type,
-                              CGEventRef event, void* reference) {
-  if (CGEventGetIntegerValueField(event, kCGEventSourceUserData) == VN_SYNTH_TAG) {
-    return event;
-  }
-
+static CGEventRef key_handler_inner(CGEventTapProxy proxy, CGEventType type,
+                                    CGEventRef event, void* reference) {
   switch (type) {
     case kCGEventTapDisabledByTimeout:
       printf("Timeout\n");
@@ -340,6 +344,35 @@ static CGEventRef key_handler(CGEventTapProxy proxy, CGEventType type,
     } break;
   }
   return event;
+}
+
+// ponytail: remote-view Save/Open panels deliver every key to this tap twice,
+// once targeted at ViewBridgeAuxiliary and once at the XPC panel service that
+// owns the text field. Only the service's copy is processed (the other passes
+// untouched), and corrections are posted straight to that pid -- synthetic
+// events posted via the tap proxy go to the frontmost app, which is blocked
+// behind the panel.
+static bool is_viewbridge_copy(pid_t pid) {
+  char name[64];
+  return pid > 0 && proc_name(pid, name, sizeof(name)) > 0 &&
+         strcmp(name, "ViewBridgeAuxiliary") == 0;
+}
+
+static CGEventRef key_handler(CGEventTapProxy proxy, CGEventType type,
+                              CGEventRef event, void* reference) {
+  if (CGEventGetIntegerValueField(event, kCGEventSourceUserData) == VN_SYNTH_TAG) {
+    return event;
+  }
+  if (type == kCGEventKeyDown || type == kCGEventFlagsChanged) {
+    pid_t target = (pid_t) CGEventGetIntegerValueField(event, kCGEventTargetUnixProcessID);
+    if (is_viewbridge_copy(target)) {
+      vn_debug_log("viewbridge copy passed through: type=%d", (int) type);
+      return event;
+    }
+    g_event_target_pid = target;
+    vn_debug_log("key target pid=%d front_pid=%d", target, g_event_tap.front_pid);
+  }
+  return key_handler_inner(proxy, type, event, reference);
 }
 
 bool event_tap_enabled(struct event_tap* event_tap) {
