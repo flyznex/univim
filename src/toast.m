@@ -1,6 +1,22 @@
 #import "toast.h"
+#import "vn_input.h"
 #import <Cocoa/Cocoa.h>
 #import "ax.h"
+
+// Click/menu controller for the status item. Gives the item a real menu so
+// Golden Gate (single-window menubar, native overflow) and third-party
+// managers treat it as a first-class item instead of a hidable text label.
+@interface UnivimStatusController : NSObject
+@end
+@implementation UnivimStatusController
+- (void)toggle:(id)sender {
+  vn_input_toggle(&g_vn_input);
+}
+- (void)quit:(id)sender {
+  [NSApp terminate:nil];
+}
+@end
+static UnivimStatusController* g_status_controller = nil;
 
 static NSWindow* g_toast_window = nil;
 static dispatch_block_t g_pending_dismiss = nil;
@@ -96,14 +112,52 @@ void toast_show(const char* text) {
 
 static NSStatusItem* g_status_item = nil;
 
+// Native menu-font metrics via attributedTitle (Hammerspoon-style): no
+// explicit color so the button keeps its vibrancy/highlight behavior.
+static void set_status_title(NSString* title) {
+    NSFont* font = [NSFont monospacedSystemFontOfSize:[NSFont labelFontSize]
+                                               weight:NSFontWeightMedium];
+    NSAttributedString* attr = [[NSAttributedString alloc]
+        initWithString:title
+            attributes:@{NSFontAttributeName: font}];
+    [g_status_item.button setAttributedTitle:attr];
+}
+
 void statusbar_init(void) {
     if (g_status_item) return;
     g_status_item = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
-    [g_status_item.button setTitle:@"EN"];
-    [g_status_item.button setFont:[NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightMedium]];
+    // Persist visibility across relaunches; required for Control Center /
+    // manager allowlists on macOS 27 Golden Gate (single-window menubar).
+    // Note: isVisible is readonly -- creating the item shows it; autosaveName
+    // lets the system remember the user's choice instead of re-hiding it.
+    g_status_item.autosaveName = @"org.univim.status";
+    // Text-only label: compact, the classic EN/VI look. (A template image
+    // was tried here and reverted -- it ate menubar space next to the text.)
+    set_status_title(@"EN");
+    g_status_controller = [[UnivimStatusController alloc] init];
+    NSMenu* menu = [[NSMenu alloc] init];
+    NSMenuItem* toggle = [[NSMenuItem alloc] initWithTitle:@"Toggle VI/EN"
+                                                    action:@selector(toggle:)
+                                             keyEquivalent:@""];
+    toggle.target = g_status_controller;
+    [menu addItem:toggle];
+    [menu addItem:[NSMenuItem separatorItem]];
+    NSMenuItem* quit = [[NSMenuItem alloc] initWithTitle:@"Quit UniVim"
+                                                  action:@selector(quit:)
+                                           keyEquivalent:@"q"];
+    quit.target = g_status_controller;
+    [menu addItem:quit];
+    g_status_item.menu = menu;
 }
 
 void statusbar_update(const char* text) {
     if (!g_status_item) return;
-    [g_status_item.button setTitle:[NSString stringWithUTF8String:text]];
+    NSString* title = [NSString stringWithUTF8String:text];
+    if ([NSThread isMainThread]) {
+        set_status_title(title);
+    } else {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            set_status_title(title);
+        });
+    }
 }

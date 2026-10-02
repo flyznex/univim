@@ -39,10 +39,16 @@ static void acquire_lockfile(void) {
 int main (int argc, char *argv[]) {
   codesign_selfheal_relaunch_if_needed(argc, argv);
 
-  NSApplicationLoad();
+  // Full NSApplication lifecycle (not bare NSApplicationLoad): this is what
+  // gives the process a registered app identity (bundle id + bundle path),
+  // which macOS 27's MenuBarAgent needs to resolve the status-item host.
+  // Accessory policy keeps the LSUIElement behavior: no Dock, no app menu.
+  [NSApplication sharedApplication];
+  [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
   signal(SIGCHLD, SIG_IGN);
   signal(SIGPIPE, SIG_IGN);
 
+  @autoreleasepool {
   acquire_lockfile();
   ax_begin(&g_ax);
   event_tap_begin(&g_event_tap);
@@ -55,6 +61,9 @@ int main (int argc, char *argv[]) {
   workspace_begin(&g_workspace);
   config_watcher_begin(&g_config_watcher);
 
-  CFRunLoopRun();
+  // NSApp's runloop (not bare CFRunLoopRun) so menu tracking and other
+  // AppKit event modes work; CF sources on the main loop are unaffected.
+  [NSApp run];
+  }
   return 0;
 }
